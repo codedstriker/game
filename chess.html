@@ -1,0 +1,1396 @@
+ <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Grandmaster AI - Interactive Chess</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+
+    <style>
+        .board-container {
+            max-width: 550px;
+            width: 100%;
+        }
+        
+        /* THEMES */
+        .theme-green .white-1e1d7 { background-color: #EEEED2; color: #769656; }
+        .theme-green .black-3c85d { background-color: #769656; color: #EEEED2; }
+        
+        .theme-blue .white-1e1d7 { background-color: #dee3e6; color: #8ca2ad; }
+        .theme-blue .black-3c85d { background-color: #8ca2ad; color: #dee3e6; }
+        
+        .theme-brown .white-1e1d7 { background-color: #f0d9b5; color: #b58863; }
+        .theme-brown .black-3c85d { background-color: #b58863; color: #f0d9b5; }
+        
+        .theme-purple .white-1e1d7 { background-color: #eaebef; color: #7d8796; }
+        .theme-purple .black-3c85d { background-color: #7d8796; color: #eaebef; }
+
+        .theme-gray .white-1e1d7 { background-color: #EFEFEF; color: #888888; }
+        .theme-gray .black-3c85d { background-color: #888888; color: #EFEFEF; }
+
+        .theme-red .white-1e1d7 { background-color: #FFCECE; color: #D35D5D; }
+        .theme-red .black-3c85d { background-color: #D35D5D; color: #FFCECE; }
+
+        .theme-orange .white-1e1d7 { background-color: #FFDCC4; color: #D18B47; }
+        .theme-orange .black-3c85d { background-color: #D18B47; color: #FFDCC4; }
+        
+        .theme-dusky .white-1e1d7 { background-color: #9f90b0; color: #6d4b83; }
+        .theme-dusky .black-3c85d { background-color: #6d4b83; color: #9f90b0; }
+
+        .theme-mint .white-1e1d7 { background-color: #E1F7E7; color: #65B37D; }
+        .theme-mint .black-3c85d { background-color: #65B37D; color: #E1F7E7; }
+
+        .theme-contrast .white-1e1d7 { background-color: #FFFFFF; color: #413636; }
+        .theme-contrast .black-3c85d { background-color: #413636; color: #FFFFFF; }
+
+
+        #advantage-bar { transition: height 0.5s ease-in-out; }
+        
+        /* Clock styling */
+        .clock { font-family: 'Courier New', monospace; letter-spacing: 2px; }
+        .clock.active { background-color: #3b82f6; color: white; border-color: #2563eb; }
+        .clock.low-time { background-color: #ef4444; color: white; animation: pulse 1s infinite; }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.8; }
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #27272a; }
+        ::-webkit-scrollbar-thumb { background: #52525b; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #71717a; }
+    </style>
+</head>
+<body class="bg-zinc-950 text-zinc-100 min-h-screen flex flex-col items-center p-4 font-sans selection:bg-blue-500/30">
+
+    <header class="text-center mb-6 w-full max-w-6xl flex justify-between items-center border-b border-zinc-800 pb-4">
+        <div>
+            <h1 class="text-3xl font-bold text-white tracking-tight flex items-center gap-3">
+                <i class="fas fa-chess-knight text-blue-500"></i> Grandmaster <span class="text-blue-500">AI</span>
+            </h1>
+        </div>
+        <button onclick="openSettings()" class="bg-zinc-800 hover:bg-zinc-700 text-zinc-200 px-4 py-2 rounded-lg transition flex items-center gap-2 border border-zinc-700">
+            <i class="fas fa-cog"></i> New Game / Settings
+        </button>
+    </header>
+
+    <main class="w-full max-w-6xl flex flex-col lg:flex-row gap-8 items-start justify-center">
+        
+        <div class="board-container flex flex-col gap-4 relative">
+            
+            <div class="flex justify-between items-end px-2">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded bg-zinc-800 flex items-center justify-center border border-zinc-700">
+                        <i class="fas fa-robot text-zinc-400"></i>
+                    </div>
+                    <div>
+                        <span id="ai-name" class="font-bold text-sm block leading-none">Opponent</span>
+                        <span id="ai-rating" class="text-xs text-zinc-500">Engine</span>
+                    </div>
+                </div>
+                <div id="clock-black" class="clock bg-zinc-800 px-4 py-2 rounded-lg text-xl font-bold border-2 border-zinc-700 transition-colors">10:00</div>
+            </div>
+
+            <div id="myBoard" class="rounded shadow-2xl overflow-hidden theme-green"></div>
+            
+            <div class="flex justify-between items-start px-2">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded bg-zinc-800 flex items-center justify-center border border-zinc-700">
+                        <i class="fas fa-user text-zinc-400"></i>
+                    </div>
+                    <div>
+                        <span class="font-bold text-sm block leading-none">You</span>
+                        <span class="text-xs text-zinc-500">Human</span>
+                    </div>
+                </div>
+                <div id="clock-white" class="clock bg-zinc-800 px-4 py-2 rounded-lg text-xl font-bold border-2 border-zinc-700 transition-colors">10:00</div>
+            </div>
+
+            <div class="bg-zinc-800/50 p-3 rounded-xl flex justify-between items-center shadow-lg border border-zinc-700 mt-2">
+                <div class="flex gap-2">
+                    <button id="undoBtn" class="bg-zinc-700 hover:bg-zinc-600 px-4 py-2 rounded font-semibold transition text-sm flex items-center gap-2">
+                        <i class="fas fa-undo"></i> Undo
+                    </button>
+                    <button id="resignBtn" class="bg-red-900/30 text-red-400 hover:bg-red-800/40 px-4 py-2 rounded font-semibold transition border border-red-800/50 text-sm flex items-center gap-2">
+                        <i class="fas fa-flag"></i> Resign
+                    </button>
+                </div>
+                <div class="text-right">
+                    <p id="status" class="font-bold text-blue-400 text-sm">Waiting to start...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="w-full lg:w-80 flex flex-col gap-4 h-[600px]">
+            
+            <div id="eval-panel" class="bg-zinc-800 p-6 rounded-xl shadow-lg border border-zinc-700">
+                <h2 class="text-sm font-bold mb-4 flex items-center gap-2 text-zinc-400 uppercase tracking-widest">
+                    <i class="fas fa-chart-line"></i> Live Evaluation
+                </h2>
+                
+                <div class="mb-4">
+                    <div class="flex justify-between text-xs mb-1 text-zinc-400">
+                        <span>Advantage</span>
+                        <span id="eval-text">0.0</span>
+                    </div>
+                    <div class="w-full bg-zinc-700 h-3 rounded-full overflow-hidden flex border border-zinc-600 relative">
+                        <div class="absolute left-1/2 top-0 bottom-0 w-0.5 bg-zinc-500/50 -translate-x-1/2 z-10"></div>
+                        <div id="adv-white" class="bg-white h-full transition-all duration-500" style="width: 50%"></div>
+                        <div id="adv-black" class="bg-zinc-900 h-full transition-all duration-500" style="width: 50%"></div>
+                    </div>
+                </div>
+
+                <div class="space-y-2 text-xs text-zinc-400 font-mono">
+                    <div class="flex justify-between border-b border-zinc-700 pb-1">
+                        <span>Depth:</span>
+                        <span id="depth-display" class="text-zinc-200">3</span>
+                    </div>
+                    <div class="flex justify-between border-b border-zinc-700 pb-1">
+                        <span>Positions:</span>
+                        <span id="pos-count" class="text-zinc-200">0</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Time:</span>
+                        <span id="search-time" class="text-zinc-200">0ms</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-zinc-800 p-0 rounded-xl shadow-lg border border-zinc-700 flex-grow flex flex-col overflow-hidden">
+                <div class="p-4 border-b border-zinc-700 bg-zinc-800/80">
+                    <h2 class="text-sm font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-2">
+                        <i class="fas fa-history"></i> Moves
+                    </h2>
+                </div>
+                <div id="move-history" class="flex-grow overflow-y-auto p-2 space-y-0.5 bg-zinc-900/30">
+                    </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="settings-modal" class="hidden fixed inset-0 bg-black/90 backdrop-blur-md flex items-center justify-center z-50 transition-opacity duration-300">
+        <div class="bg-zinc-900 w-full max-w-2xl rounded-2xl border border-zinc-700 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            
+            <div class="p-6 border-b border-zinc-800 flex justify-between items-center bg-zinc-800">
+                <h2 class="text-2xl font-bold text-white"><i class="fas fa-chess mr-2"></i>Game Setup</h2>
+                <button onclick="closeSettings(false)" class="text-zinc-400 hover:text-white"><i class="fas fa-times text-xl"></i></button>
+            </div>
+
+            <div class="p-8 overflow-y-auto space-y-8">
+                
+                <div class="space-y-3">
+                    <label class="block text-sm font-bold text-zinc-400 uppercase tracking-widest">I want to play as</label>
+                    <div class="grid grid-cols-3 gap-4">
+                        <button onclick="selectColor('w')" class="color-btn p-4 rounded-xl border-2 border-zinc-700 hover:border-blue-500 bg-zinc-800 flex flex-col items-center gap-2 transition group" data-color="w">
+                            <i class="fas fa-chess-king text-3xl text-white group-hover:scale-110 transition"></i>
+                            <span class="font-bold">White</span>
+                        </button>
+                        <button onclick="selectColor('random')" class="color-btn p-4 rounded-xl border-2 border-blue-600 bg-zinc-800 flex flex-col items-center gap-2 transition group ring-2 ring-blue-500/20" data-color="random">
+                            <i class="fas fa-dice text-3xl text-zinc-400 group-hover:scale-110 transition"></i>
+                            <span class="font-bold">Random</span>
+                        </button>
+                        <button onclick="selectColor('b')" class="color-btn p-4 rounded-xl border-2 border-zinc-700 hover:border-blue-500 bg-zinc-800 flex flex-col items-center gap-2 transition group" data-color="b">
+                            <i class="fas fa-chess-king text-3xl text-black bg-white rounded-full px-1 group-hover:scale-110 transition"></i>
+                            <span class="font-bold">Black</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="space-y-3">
+                        <label class="block text-sm font-bold text-zinc-400 uppercase tracking-widest">Time Control</label>
+                        <select id="time-control" class="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="30">30 seconds (Bullet)</option>
+                            <option value="60">1 minute (Bullet)</option>
+                            <option value="600" selected>10 minutes (Rapid)</option>
+                            <option value="900+10">15 | 10 (Rapid)</option>
+                            <option value="1800">30 minutes (Classical)</option>
+                            <option value="3600">60 minutes</option>
+                            <option value="5400">90 minutes</option>
+                            <option value="Infinity">Unlimited</option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-3">
+                        <label class="block text-sm font-bold text-zinc-400 uppercase tracking-widest">Board Theme</label>
+                        <select id="board-theme" class="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 outline-none">
+                            <option value="theme-green">Classic Green</option>
+                            <option value="theme-blue">Tournament Blue</option>
+                            <option value="theme-brown">Wood</option>
+                            <option value="theme-purple">Royal Purple</option>
+                            <option value="theme-gray">Newspaper Gray</option>
+                            <option value="theme-red">Cherry Red</option>
+                            <option value="theme-orange">Autumn Orange</option>
+                            <option value="theme-dusky">Dusky Violet</option>
+                            <option value="theme-mint">Fresh Mint</option>
+                            <option value="theme-contrast">High Contrast</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="space-y-3">
+                    <label class="block text-sm font-bold text-zinc-400 uppercase tracking-widest">Select Engine Opponent</label>
+                    <div class="relative">
+                        <select id="engine-select" class="w-full bg-zinc-800 border border-zinc-700 rounded-lg p-3 text-white focus:ring-2 focus:ring-blue-500 outline-none appearance-none font-mono text-sm">
+                            <optgroup label="Top Modern Engines (Strongest Today)">
+                                <option value="8:Stockfish 16">Stockfish 16</option>
+                                <option value="4:Leela Chess Zero">Leela Chess Zero (Lc0)</option>
+                                <option value="4:Komodo Dragon">Komodo Dragon</option>
+                                <option value="4:AlphaZero">AlphaZero</option>
+                                <option value="4:Dragon by Komodo">Dragon by Komodo</option>
+                            </optgroup>
+                            <optgroup label="Other Competitive Engines">
+                                <option value="4:Houdini">Houdini</option>
+                                <option value="4:Fritz">Fritz</option>
+                                <option value="4:Rybka">Rybka</option>
+                                <option value="4:Shredder">Shredder</option>
+                                <option value="4:Fire">Fire</option>
+                                <option value="4:Rubichess">Rubichess</option>
+                                <option value="4:Ethereal">Ethereal</option>
+                                <option value="4:Igel">Igel</option>
+                                <option value="4:Berserk">Berserk</option>
+                                <option value="4:Seer">Seer</option>
+                                <option value="4:RofChade">RofChade</option>
+                                <option value="4:Clover">Clover</option>
+                                <option value="4:Arasan">Arasan</option>
+                                <option value="4:Pedone">Pedone</option>
+                            </optgroup>
+                            <optgroup label="Classic Engines (Famous Historically)">
+                                <option value="3:Crafty">Crafty</option>
+                                <option value="3:GNU Chess">GNU Chess</option>
+                                <option value="3:Fruit">Fruit</option>
+                                <option value="3:Toga II">Toga II</option>
+                                <option value="3:Glaurung">Glaurung</option>
+                                <option value="3:Naum">Naum</option>
+                                <option value="3:Hiarcs">Hiarcs</option>
+                                <option value="3:Junior">Junior</option>
+                                <option value="3:Rebel">Rebel</option>
+                                <option value="3:Zappa">Zappa</option>
+                            </optgroup>
+                            <optgroup label="Lightweight / Mobile / Browser Engines">
+                                <option value="2:Fairy-Stockfish" selected>Fairy-Stockfish (JS)</option>
+                                <option value="2:Senpai">Senpai</option>
+                                <option value="2:Texel">Texel</option>
+                                <option value="2:Rodent II">Rodent II</option>
+                                <option value="2:Sunfish">Sunfish (Python engine)</option>
+                                <option value="2:PicoChess">PicoChess</option>
+                            </optgroup>
+                        </select>
+                        <div class="absolute right-3 top-3 text-zinc-500 pointer-events-none">
+                            <i class="fas fa-chevron-down"></i>
+                        </div>
+                    </div>
+                    <p class="text-xs text-zinc-500 mt-1 italic">* Browser Simulation: Engine personalities are approximated using internal Minimax depth and heuristics. Stockfish (if selected) will be used if it loads correctly.</p>
+                </div>
+
+                <div class="space-y-2">
+                    <label class="block text-sm font-bold text-zinc-400 uppercase tracking-widest">UI Options</label>
+                    <div class="flex items-center gap-3">
+                        <input id="toggle-eval" type="checkbox" checked />
+                        <label class="text-xs text-zinc-400">Show live evaluation</label>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="p-6 border-t border-zinc-800 bg-zinc-850 flex justify-end gap-4">
+                <button onclick="startGame()" class="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-xl font-bold text-lg shadow-lg shadow-blue-900/20 transition transform hover:scale-105">
+                    Start Game
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="promotion-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
+        <div class="bg-zinc-800 p-6 rounded-2xl border border-zinc-700 text-center shadow-2xl">
+            <h3 class="text-xl font-bold mb-4 text-white">Promote to</h3>
+            <div class="flex gap-4">
+                <button onclick="selectPromotion('q')" class="w-16 h-16 bg-zinc-700 hover:bg-blue-600 rounded-xl transition text-4xl flex items-center justify-center text-white shadow-lg">♛</button>
+                <button onclick="selectPromotion('r')" class="w-16 h-16 bg-zinc-700 hover:bg-blue-600 rounded-xl transition text-4xl flex items-center justify-center text-white shadow-lg">♜</button>
+                <button onclick="selectPromotion('b')" class="w-16 h-16 bg-zinc-700 hover:bg-blue-600 rounded-xl transition text-4xl flex items-center justify-center text-white shadow-lg">♝</button>
+                <button onclick="selectPromotion('n')" class="w-16 h-16 bg-zinc-700 hover:bg-blue-600 rounded-xl transition text-4xl flex items-center justify-center text-white shadow-lg">♞</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-over-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
+        <div class="bg-zinc-800 p-8 rounded-2xl border border-zinc-700 text-center shadow-2xl max-w-sm w-full">
+            <div id="game-over-icon" class="text-6xl mb-4">👑</div>
+            <h3 id="game-over-title" class="text-2xl font-bold mb-2 text-white">White Wins!</h3>
+            <p id="game-over-reason" class="text-zinc-400 mb-6">Checkmate</p>
+            <div class="flex gap-3 justify-center">
+                <button onclick="openSettings()" class="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded-lg font-bold transition">New Game</button>
+                <button onclick="$('#game-over-modal').addClass('hidden')" class="bg-zinc-700 hover:bg-zinc-600 text-white px-6 py-2 rounded-lg font-bold transition">View Board</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* --- GAME STATE --- */
+        let board = null;
+        let game = new Chess();
+        let userColor = 'w';
+        let aiDepth = 3;
+        let positionCount = 0;
+        let promotionMove = null;
+        let gameActive = false;
+        const allThemes = ['theme-green', 'theme-blue', 'theme-brown', 'theme-purple', 'theme-gray', 'theme-red', 'theme-orange', 'theme-dusky', 'theme-mint', 'theme-contrast'];
+        
+        // Timers
+        let whiteTime = 600;
+        let blackTime = 600;
+        let timeIncrement = 0;
+        let timerInterval = null;
+        let lastTimerTimestamp = null;
+        let timerUnlimited = false;
+
+        // Clock mapping (DOM elements) - these will be assigned to player's/opponent's visible clocks
+        let playerClockEl = null;
+        let opponentClockEl = null;
+
+        /* --- AUDIO (WebAudio) --- */
+        const AudioCtor = window.AudioContext || window.webkitAudioContext;
+        const audioCtx = AudioCtor ? new AudioCtor() : null;
+        function playTone(freq, duration = 0.08, type = 'sine', gain = 0.15) {
+            if (!audioCtx) return; // Web Audio unsupported in this browser; fail silently.
+            try {
+                const o = audioCtx.createOscillator();
+                const g = audioCtx.createGain();
+                o.type = type;
+                o.frequency.value = freq;
+                g.gain.value = gain;
+                o.connect(g);
+                g.connect(audioCtx.destination);
+                o.start();
+                setTimeout(() => { o.stop(); }, duration * 1000);
+            } catch(e) {
+                // Audio API may be blocked by browser autoplay policy; ignore.
+            }
+        }
+        function playSound(name) {
+            if (name === 'move') {
+                playTone(880, 0.06, 'triangle', 0.08);
+            } else if (name === 'check') {
+                playTone(600, 0.12, 'sine', 0.18);
+                setTimeout(() => playTone(700, 0.10, 'sine', 0.16), 120);
+            } else if (name === 'checkmate') {
+                playTone(300, 0.18, 'sawtooth', 0.22);
+                setTimeout(() => playTone(450, 0.18, 'sawtooth', 0.22), 180);
+            }
+        }
+
+        /* --- STOCKFISH ENGINE (attempt to load) --- */
+        let stockfishWorker = null;
+        let stockfishReady = false;
+        let stockfishPendingResolve = null;
+        // Once true, we stop retrying Stockfish for the rest of the session and silently use the
+        // local JS-engine Worker instead. Prevents every single AI turn from re-attempting (and
+        // waiting out a timeout on) a Worker we already know is dead.
+        let stockfishPermanentlyDisabled = false;
+
+        // Load a Stockfish build from a CDN and run it in a Worker.
+        //
+        // `new Worker('https://cdn...')` (the original approach) constructs the worker directly from a
+        // cross-origin script URL. Depending on the browser and any page CSP (`worker-src`), that either
+        // throws a synchronous SecurityError or fails asynchronously via the worker's `error` event —
+        // and the original code had no `onerror` handler at all, so a failure here left `stockfishWorker`
+        // silently non-functional forever.
+        //
+        // Fix: fetch the script's *text* (a normal cross-origin fetch, which CDNs like jsdelivr allow via
+        // Access-Control-Allow-Origin), wrap it in a same-origin Blob, and construct the Worker from the
+        // resulting blob: URL. Blob-hosted workers are always same-origin from the page's point of view,
+        // so this sidesteps the cross-origin Worker-construction restriction entirely.
+        //
+        // Residual caveat (documented honestly rather than hidden): the Stockfish WASM loader internally
+        // fetches its .wasm binary using a path *relative to its own script URL*. Once that script is
+        // re-hosted at a blob: URL, that relative fetch can no longer resolve back to the CDN, which can
+        // still prevent the engine from reaching "readyok" on some CDN builds. There's no way to fully
+        // guarantee this without a same-origin proxy or a build that accepts an explicit wasm-path override
+        // — so this loader treats that failure mode as an expected possibility and falls back cleanly
+        // rather than assuming it always works.
+        async function loadStockfishWorker() {
+            try {
+                const url = 'https://cdn.jsdelivr.net/npm/stockfish@15.1/stockfish.wasm.js';
+                const resp = await fetch(url);
+                if (!resp.ok) throw new Error('Stockfish script fetch failed: HTTP ' + resp.status);
+                const scriptText = await resp.text();
+                const blob = new Blob([scriptText], { type: 'application/javascript' });
+                const blobUrl = URL.createObjectURL(blob);
+
+                stockfishWorker = new Worker(blobUrl);
+
+                stockfishWorker.onerror = function(err) {
+                    console.warn('Stockfish worker errored; permanently falling back to the local engine.', err);
+                    stockfishPermanentlyDisabled = true;
+                    stockfishReady = false;
+                    if (stockfishPendingResolve) { stockfishPendingResolve(null); stockfishPendingResolve = null; }
+                    if (stockfishWorker) { stockfishWorker.terminate(); stockfishWorker = null; }
+                    refreshEngineLabel();
+                };
+
+                stockfishWorker.onmessage = function(e) {
+                    const text = typeof e.data === 'string' ? e.data : (e.data && e.data.text) ? e.data.text : '';
+                    if (text.includes('uciok') || text.includes('readyok')) {
+                        stockfishReady = true;
+                        refreshEngineLabel();
+                    }
+                    if (stockfishPendingResolve && text.startsWith('bestmove')) {
+                        const parts = text.split(' ');
+                        const best = parts[1];
+                        stockfishPendingResolve(best);
+                        stockfishPendingResolve = null;
+                    }
+                };
+
+                stockfishWorker.postMessage('uci');
+
+                // Safety timeout: if the engine never reaches uciok/readyok, stop relying on it instead
+                // of silently re-attempting (and re-timing-out) on every future move.
+                setTimeout(() => {
+                    if (!stockfishReady) {
+                        console.warn('Stockfish did not report ready in time; using the local engine instead.');
+                        stockfishPermanentlyDisabled = true;
+                        if (stockfishWorker) { stockfishWorker.terminate(); stockfishWorker = null; }
+                        refreshEngineLabel();
+                    }
+                }, 4000);
+            } catch (err) {
+                console.warn('Stockfish unavailable, using local engine.', err);
+                stockfishWorker = null;
+                stockfishReady = false;
+                stockfishPermanentlyDisabled = true;
+                refreshEngineLabel();
+            }
+        }
+
+        // Ask Stockfish for move (best-effort). Returns Promise<string|null> best move (e2e4) or null
+        function stockfishGetBestMove(fen, depth) {
+            return new Promise((resolve) => {
+                if (!stockfishWorker || !stockfishReady || stockfishPermanentlyDisabled) {
+                    return resolve(null);
+                }
+                stockfishPendingResolve = resolve;
+                try {
+                    stockfishWorker.postMessage('position fen ' + fen);
+                    stockfishWorker.postMessage('go depth ' + depth);
+                    // Safety: resolve null if not returned in 6s
+                    setTimeout(() => {
+                        if (stockfishPendingResolve) {
+                            stockfishPendingResolve(null);
+                            stockfishPendingResolve = null;
+                        }
+                    }, 6000);
+                } catch (e) {
+                    stockfishPendingResolve = null;
+                    resolve(null);
+                }
+            });
+        }
+
+        /* --- CONFIGURATION LOGIC --- */
+        let selectedColorChoice = 'random'; // Temp storage for modal
+        let lastCheckState = false; // to detect entering check
+        let selectedEngineName = 'Fairy-Stockfish';
+
+        function openSettings() {
+            $('#settings-modal').removeClass('hidden').css('display', 'flex');
+        }
+
+        function closeSettings(startGameBool) {
+            $('#settings-modal').addClass('hidden').css('display', '');
+            if(!startGameBool && !gameActive) {
+                startGame(); 
+            }
+        }
+
+        function selectColor(c) {
+            selectedColorChoice = c;
+            $('.color-btn').removeClass('border-blue-600 ring-2 ring-blue-500/20').addClass('border-zinc-700');
+            $(`.color-btn[data-color="${c}"]`).removeClass('border-zinc-700').addClass('border-blue-600 ring-2 ring-blue-500/20');
+        }
+
+        /* Map visible clocks so the clock beside the player is always the bottom clock.
+           Important: the DOM uses #clock-white (bottom element) and #clock-black (top element).
+           We'll treat the bottom element as the player's visible clock (regardless of piece color),
+           and swap which time value is shown there depending on the player's color. */
+        function mapClocksToPlayer() {
+            playerClockEl = $('#clock-white');   // bottom clock is the visible player's clock
+            opponentClockEl = $('#clock-black'); // top clock is the opponent's visible clock
+        }
+
+        function startGame() {
+            closeSettings(true);
+            
+            // 1. Set Color
+            if (selectedColorChoice === 'random') {
+                userColor = Math.random() < 0.5 ? 'w' : 'b';
+            } else {
+                userColor = selectedColorChoice;
+            }
+
+            // 2. Set Time
+            const timeVal = $('#time-control').val();
+            if (timeVal === 'Infinity') {
+                timerUnlimited = true;
+                whiteTime = blackTime = 0;
+                $('#clock-white').text("∞");
+                $('#clock-black').text("∞");
+            } else if (timeVal.includes('+')) {
+                const parts = timeVal.split('+');
+                whiteTime = blackTime = parseInt(parts[0]);
+                timeIncrement = parseInt(parts[1]);
+                timerUnlimited = false;
+            } else {
+                whiteTime = blackTime = parseInt(timeVal);
+                timeIncrement = 0;
+                timerUnlimited = false;
+            }
+
+            // Map clock DOM elements to player/opponent for visual correctness (bottom = player's visible clock)
+            mapClocksToPlayer();
+
+            // 3. Set Theme
+            const theme = $('#board-theme').val();
+            $('#myBoard').removeClass(allThemes.join(' ')).addClass(theme);
+
+            // 4. Set Engine
+            const engineVal = $('#engine-select').val(); // Format "depth:name"
+            const [depth, name] = engineVal.split(':');
+            aiDepth = Math.max(1, parseInt(depth) || 3);
+            selectedEngineName = name || 'Fairy-Stockfish';
+            $('#ai-name').text(name);
+            refreshEngineLabel();
+            $('#depth-display').text(aiDepth);
+
+            // Reset Game Logic
+            game.reset();
+            board.orientation(userColor === 'w' ? 'white' : 'black');
+            board.position('start');
+            board.resize();
+            
+            gameActive = true;
+            $('#game-over-modal').addClass('hidden');
+            
+            updateStatus();
+            // Ensure only one interval running
+            if (timerInterval) clearInterval(timerInterval);
+            lastTimerTimestamp = performance.now();
+            timerInterval = setInterval(timerTick, 1000);
+            // If playing Black, AI moves first (and may use stockfish)
+            if (userColor === 'b') {
+                window.setTimeout(makeBestMove, 500);
+            }
+        }
+
+        /* --- TIMER LOGIC --- */
+        function timerTick() {
+            if (!gameActive || timerUnlimited) return;
+
+            const now = performance.now();
+            if (lastTimerTimestamp == null) lastTimerTimestamp = now;
+            const elapsedSec = Math.floor((now - lastTimerTimestamp) / 1000);
+            if (elapsedSec <= 0) return;
+            lastTimerTimestamp += elapsedSec * 1000;
+
+            // Decrement the side-to-move's clock by the number of elapsed seconds
+            if (game.turn() === 'w') {
+                whiteTime -= elapsedSec;
+                if (whiteTime <= 0) {
+                    whiteTime = 0;
+                    endGame('b', 'Time Out');
+                }
+            } else {
+                blackTime -= elapsedSec;
+                if (blackTime <= 0) {
+                    blackTime = 0;
+                    endGame('w', 'Time Out');
+                }
+            }
+            updateClockDisplay();
+        }
+
+        function formatTime(t) {
+            if (t <= 0) return "0:00";
+            const m = Math.floor(t / 60);
+            const s = t % 60;
+            return `${m}:${s < 10 ? '0' : ''}${s}`;
+        }
+
+        /* UPDATED: ensure the bottom (visible player clock) displays the player's remaining time, and
+           the top displays the opponent's. Also correctly apply active / low-time classes. */
+        function updateClockDisplay() {
+            // If unlimited, show infinity on both and clear classes
+            const bottomEl = $('#clock-white'); // bottom element (visible close to player)
+            const topEl = $('#clock-black');   // top element (visible close to opponent)
+
+            if (timerUnlimited) {
+                bottomEl.text("∞").removeClass('active low-time');
+                topEl.text("∞").removeClass('active low-time');
+                return;
+            }
+
+            // Decide which time value to show on bottom/top based on player's color
+            if (userColor === 'w') {
+                // bottom should show whiteTime, top shows blackTime
+                bottomEl.text(formatTime(whiteTime));
+                topEl.text(formatTime(blackTime));
+                playerClockEl = bottomEl;
+                opponentClockEl = topEl;
+            } else {
+                // user is black: bottom should show blackTime, top shows whiteTime
+                bottomEl.text(formatTime(blackTime));
+                topEl.text(formatTime(whiteTime));
+                playerClockEl = bottomEl;
+                opponentClockEl = topEl;
+            }
+
+            // Set active classes: if it's player's turn -> player's clock active; otherwise opponent active
+            playerClockEl.removeClass('active low-time');
+            opponentClockEl.removeClass('active low-time');
+
+            const sideToMove = game.turn(); // 'w' or 'b'
+            if (sideToMove === userColor) {
+                playerClockEl.addClass('active');
+                // low-time check on player's side
+                const tt = userColor === 'w' ? whiteTime : blackTime;
+                if (tt < 30) playerClockEl.addClass('low-time');
+            } else {
+                opponentClockEl.addClass('active');
+                // low-time check on opponent's visible clock
+                const oppColor = (userColor === 'w' ? 'b' : 'w');
+                const tt = oppColor === 'w' ? whiteTime : blackTime;
+                if (tt < 30) opponentClockEl.addClass('low-time');
+            }
+        }
+
+        function endGame(winnerColor, reason) {
+            gameActive = false;
+            if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+            lastTimerTimestamp = null;
+            
+            const title = winnerColor === 'w' ? "White Wins!" : (winnerColor === 'b' ? "Black Wins!" : "Draw!");
+            const icon = winnerColor === 'draw' ? "🤝" : "👑";
+            
+            $('#game-over-title').text(title);
+            $('#game-over-reason').text(reason);
+            $('#game-over-icon').text(icon);
+            $('#game-over-modal').removeClass('hidden');
+
+            // play checkmate sound if reason indicates it
+            if (reason && reason.toLowerCase().includes('checkmate') || reason && reason.toLowerCase().includes('mate')) {
+                playSound('checkmate');
+            }
+        }
+
+        /* --- CHESS ENGINE LOGIC (Minimax fallback, now off the main thread) ---
+         *
+         * BUG (original): getBestMoveJS() ran the full alpha-beta search synchronously on the
+         * UI thread. At the depths several dropdown entries request (e.g. depth 8 for
+         * "Stockfish 16" once its CDN worker fails and everything falls back to this engine),
+         * that's thousands of recursive chess.js legality checks executed back-to-back with
+         * nothing yielding to the browser — dragging, the clocks, Resign/Undo, and board
+         * animations all lock up for the duration of every single AI turn.
+         *
+         * FIX: the search (weights, piece-square tables, evaluateBoard, minimax) now lives in
+         * its own dedicated Web Worker, built from an in-memory string template turned into a
+         * Blob (see initJsEngineWorker below) — the same cross-origin-safe technique used for
+         * Stockfish. chess.js is loaded inside that worker via importScripts(), which — unlike
+         * fetch() or module-worker construction — is not subject to CORS, so pulling it in from
+         * the CDN works the same way it already does in the main document.
+         *
+         * The tables/logic are necessarily duplicated as worker source text below (a Worker
+         * can't "import" functions already parsed on the main thread — only text/URLs), so a
+         * synchronous copy is kept here too, but ONLY as a last-resort path for the rare case
+         * where even a blob: Worker can't be constructed (e.g. an unusually strict page CSP).
+         * That last-resort path is chunked with macro-task yields between root moves so it
+         * still can't freeze the tab in one uninterrupted block.
+         */
+        const weights = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 20000 };
+        const pst = {
+            p: [
+                [0,0,0,0,0,0,0,0],
+                [50,50,50,50,50,50,50,50],
+                [10,10,20,30,30,20,10,10],
+                [5,5,10,25,25,10,5,5],
+                [0,0,0,20,20,0,0,0],
+                [5,-5,-10,0,0,-10,-5,5],
+                [5,10,10,-20,-20,10,10,5],
+                [0,0,0,0,0,0,0,0]
+            ],
+            n: [
+                [-50,-40,-30,-30,-30,-30,-40,-50],
+                [-40,-20,0,0,0,0,-20,-40],
+                [-30,0,10,15,15,10,0,-30],
+                [-30,5,15,20,20,15,5,-30],
+                [-30,0,15,20,20,15,0,-30],
+                [-30,5,10,15,15,10,5,-30],
+                [-40,-20,0,5,5,0,-20,-40],
+                [-50,-40,-30,-30,-30,-30,-40,-50]
+            ],
+            b: [
+                [-20,-10,-10,-10,-10,-10,-10,-20],
+                [-10,0,0,0,0,0,0,-10],
+                [-10,0,5,10,10,5,0,-10],
+                [-10,5,5,10,10,5,5,-10],
+                [-10,0,10,10,10,10,0,-10],
+                [-10,10,10,10,10,10,10,-10],
+                [-10,5,0,0,0,0,5,-10],
+                [-20,-10,-10,-10,-10,-10,-10,-20]
+            ],
+            r: [
+                [0,0,0,0,0,0,0,0],
+                [5,10,10,10,10,10,10,5],
+                [-5,0,0,0,0,0,0,-5],
+                [-5,0,0,0,0,0,0,-5],
+                [-5,0,0,0,0,0,0,-5],
+                [-5,0,0,0,0,0,0,-5],
+                [-5,0,0,0,0,0,0,-5],
+                [0,0,0,5,5,0,0,0]
+            ],
+            q: [
+                [-20,-10,-10,-5,-5,-10,-10,-20],
+                [-10,0,0,0,0,0,0,-10],
+                [-10,0,5,5,5,5,0,-10],
+                [-5,0,5,5,5,5,0,-5],
+                [0,0,5,5,5,5,0,-5],
+                [-10,5,5,5,5,5,0,-10],
+                [-10,0,5,0,0,0,0,-10],
+                [-20,-10,-10,-5,-5,-10,-10,-20]
+            ],
+            k: [
+                [-30,-40,-40,-50,-50,-40,-40,-30],
+                [-30,-40,-40,-50,-50,-40,-40,-30],
+                [-30,-40,-40,-50,-50,-40,-40,-30],
+                [-30,-40,-40,-50,-50,-40,-40,-30],
+                [-20,-30,-30,-40,-40,-30,-30,-20],
+                [-10,-20,-20,-20,-20,-20,-20,-10],
+                [20,20,0,0,0,0,20,20],
+                [20,30,10,0,0,10,30,20]
+            ]
+        };
+
+        function evaluateBoard(gameInstance) {
+            let totalEval = 0;
+            const boardArr = gameInstance.board();
+            for (let i = 0; i < 8; i++) {
+                for (let j = 0; j < 8; j++) {
+                    totalEval += getPieceValue(boardArr[i][j], i, j);
+                }
+            }
+            return totalEval;
+        }
+
+        function getPieceValue(piece, x, y) {
+            if (piece === null) return 0;
+            let val = weights[piece.type] || 0;
+            if (pst[piece.type]) {
+                val += (piece.color === 'w' ? pst[piece.type][x][y] : pst[piece.type][7-x][y]);
+            }
+            return piece.color === 'w' ? val : -val;
+        }
+
+        // Minimax with alpha-beta, move ordering (captures first), and position cap.
+        // Kept on the main thread ONLY for the last-resort chunked fallback (see
+        // getBestMoveLastResort below) — the primary path runs this same logic inside
+        // jsEngineWorker instead, off the UI thread entirely.
+        function minimax(gameInstance, depth, alpha, beta, isMaximizing, maxPositions) {
+            positionCount++;
+            if (depth === 0 || positionCount >= maxPositions) return evaluateBoard(gameInstance);
+            let moves = gameInstance.moves({ verbose: true });
+
+            if (moves.length === 0) {
+                if (gameInstance.in_checkmate()) return isMaximizing ? -Infinity : Infinity;
+                return 0; // Draw
+            }
+
+            // Move ordering: prefer captures and promotions
+            moves.sort((a,b) => {
+                const aScore = (a.captured ? 1000 + (weights[a.captured] || 0) : 0) + (a.promotion ? 500 : 0);
+                const bScore = (b.captured ? 1000 + (weights[b.captured] || 0) : 0) + (b.promotion ? 500 : 0);
+                return bScore - aScore;
+            });
+
+            if (isMaximizing) {
+                let bestEval = -Infinity;
+                for (let move of moves) {
+                    gameInstance.move(move);
+                    let eval = minimax(gameInstance, depth - 1, alpha, beta, !isMaximizing, maxPositions);
+                    gameInstance.undo();
+                    bestEval = Math.max(bestEval, eval);
+                    alpha = Math.max(alpha, eval);
+                    if (beta <= alpha) break;
+                }
+                return bestEval;
+            } else {
+                let bestEval = Infinity;
+                for (let move of moves) {
+                    gameInstance.move(move);
+                    let eval = minimax(gameInstance, depth - 1, alpha, beta, !isMaximizing, maxPositions);
+                    gameInstance.undo();
+                    bestEval = Math.min(bestEval, eval);
+                    beta = Math.min(beta, eval);
+                    if (beta <= alpha) break;
+                }
+                return bestEval;
+            }
+        }
+
+        function sleep0() { return new Promise((resolve) => setTimeout(resolve, 0)); }
+
+        // Last-resort fallback: only used if jsEngineWorker could not be constructed at all
+        // (e.g. a page CSP that blocks blob: workers). Runs the same search synchronously but
+        // yields to the browser between each root move (macro-task chunking) so it degrades to
+        // "occasionally choppy" instead of "fully frozen" for the duration of the search.
+        async function getBestMoveLastResort(gameInstance) {
+            const tempGame = new Chess(gameInstance.fen());
+            const moves = tempGame.moves();
+            let bestMove = null;
+            const aiColor = gameInstance.turn(); // side to move now is the AI
+            let bestValue = aiColor === 'w' ? -Infinity : Infinity;
+            positionCount = 0;
+            const start = performance.now();
+
+            moves.sort(() => Math.random() - 0.5);
+            const maxPositions = Math.max(1000, 500 * aiDepth);
+
+            for (let move of moves) {
+                tempGame.move(move);
+                const isMaximizingNow = (tempGame.turn() === 'w');
+                const boardValue = minimax(tempGame, Math.max(0, aiDepth - 1), -Infinity, Infinity, isMaximizingNow, maxPositions);
+                tempGame.undo();
+
+                if (aiColor === 'w') {
+                    if (boardValue > bestValue) { bestValue = boardValue; bestMove = move; }
+                } else {
+                    if (boardValue < bestValue) { bestValue = boardValue; bestMove = move; }
+                }
+                if (positionCount > maxPositions) break;
+
+                await sleep0(); // yield between root moves
+            }
+
+            const end = performance.now();
+            $('#pos-count').text(positionCount.toLocaleString());
+            $('#search-time').text(Math.round(end - start) + 'ms');
+            const rawScore = evaluateBoard(gameInstance) / 100;
+            $('#eval-text').text(rawScore.toFixed(2));
+            const percentage = Math.max(5, Math.min(95, 50 + (rawScore * 10)));
+            $('#adv-white').css('width', percentage + '%');
+            $('#adv-black').css('width', (100 - percentage) + '%');
+
+            if (!bestMove) return null;
+            return gameInstance.move(bestMove);
+        }
+
+        /* --- LOCAL ENGINE WORKER (primary path) ---
+         * Source text for the dedicated search worker. Built as a string (rather than a
+         * separate .js file) so the whole app stays a single, self-contained HTML file —
+         * turned into a Blob and instantiated as a real Worker at startup.
+         */
+        const JS_ENGINE_WORKER_SOURCE = `
+            importScripts('https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js');
+
+            const weights = { p: 100, n: 320, b: 330, r: 500, q: 900, k: 20000 };
+            const pst = {
+                p: [
+                    [0,0,0,0,0,0,0,0],
+                    [50,50,50,50,50,50,50,50],
+                    [10,10,20,30,30,20,10,10],
+                    [5,5,10,25,25,10,5,5],
+                    [0,0,0,20,20,0,0,0],
+                    [5,-5,-10,0,0,-10,-5,5],
+                    [5,10,10,-20,-20,10,10,5],
+                    [0,0,0,0,0,0,0,0]
+                ],
+                n: [
+                    [-50,-40,-30,-30,-30,-30,-40,-50],
+                    [-40,-20,0,0,0,0,-20,-40],
+                    [-30,0,10,15,15,10,0,-30],
+                    [-30,5,15,20,20,15,5,-30],
+                    [-30,0,15,20,20,15,0,-30],
+                    [-30,5,10,15,15,10,5,-30],
+                    [-40,-20,0,5,5,0,-20,-40],
+                    [-50,-40,-30,-30,-30,-30,-40,-50]
+                ],
+                b: [
+                    [-20,-10,-10,-10,-10,-10,-10,-20],
+                    [-10,0,0,0,0,0,0,-10],
+                    [-10,0,5,10,10,5,0,-10],
+                    [-10,5,5,10,10,5,5,-10],
+                    [-10,0,10,10,10,10,0,-10],
+                    [-10,10,10,10,10,10,10,-10],
+                    [-10,5,0,0,0,0,5,-10],
+                    [-20,-10,-10,-10,-10,-10,-10,-20]
+                ],
+                r: [
+                    [0,0,0,0,0,0,0,0],
+                    [5,10,10,10,10,10,10,5],
+                    [-5,0,0,0,0,0,0,-5],
+                    [-5,0,0,0,0,0,0,-5],
+                    [-5,0,0,0,0,0,0,-5],
+                    [-5,0,0,0,0,0,0,-5],
+                    [-5,0,0,0,0,0,0,-5],
+                    [0,0,0,5,5,0,0,0]
+                ],
+                q: [
+                    [-20,-10,-10,-5,-5,-10,-10,-20],
+                    [-10,0,0,0,0,0,0,-10],
+                    [-10,0,5,5,5,5,0,-10],
+                    [-5,0,5,5,5,5,0,-5],
+                    [0,0,5,5,5,5,0,-5],
+                    [-10,5,5,5,5,5,0,-10],
+                    [-10,0,5,0,0,0,0,-10],
+                    [-20,-10,-10,-5,-5,-10,-10,-20]
+                ],
+                k: [
+                    [-30,-40,-40,-50,-50,-40,-40,-30],
+                    [-30,-40,-40,-50,-50,-40,-40,-30],
+                    [-30,-40,-40,-50,-50,-40,-40,-30],
+                    [-30,-40,-40,-50,-50,-40,-40,-30],
+                    [-20,-30,-30,-40,-40,-30,-30,-20],
+                    [-10,-20,-20,-20,-20,-20,-20,-10],
+                    [20,20,0,0,0,0,20,20],
+                    [20,30,10,0,0,10,30,20]
+                ]
+            };
+
+            function getPieceValue(piece, x, y) {
+                if (piece === null) return 0;
+                let val = weights[piece.type] || 0;
+                if (pst[piece.type]) {
+                    val += (piece.color === 'w' ? pst[piece.type][x][y] : pst[piece.type][7-x][y]);
+                }
+                return piece.color === 'w' ? val : -val;
+            }
+
+            function evaluateBoard(gameInstance) {
+                let totalEval = 0;
+                const boardArr = gameInstance.board();
+                for (let i = 0; i < 8; i++) {
+                    for (let j = 0; j < 8; j++) {
+                        totalEval += getPieceValue(boardArr[i][j], i, j);
+                    }
+                }
+                return totalEval;
+            }
+
+            let positionCount = 0;
+
+            function minimax(gameInstance, depth, alpha, beta, isMaximizing, maxPositions) {
+                positionCount++;
+                if (depth === 0 || positionCount >= maxPositions) return evaluateBoard(gameInstance);
+                let moves = gameInstance.moves({ verbose: true });
+
+                if (moves.length === 0) {
+                    if (gameInstance.in_checkmate()) return isMaximizing ? -Infinity : Infinity;
+                    return 0;
+                }
+
+                moves.sort((a, b) => {
+                    const aScore = (a.captured ? 1000 + (weights[a.captured] || 0) : 0) + (a.promotion ? 500 : 0);
+                    const bScore = (b.captured ? 1000 + (weights[b.captured] || 0) : 0) + (b.promotion ? 500 : 0);
+                    return bScore - aScore;
+                });
+
+                if (isMaximizing) {
+                    let bestEval = -Infinity;
+                    for (let move of moves) {
+                        gameInstance.move(move);
+                        let evalScore = minimax(gameInstance, depth - 1, alpha, beta, !isMaximizing, maxPositions);
+                        gameInstance.undo();
+                        bestEval = Math.max(bestEval, evalScore);
+                        alpha = Math.max(alpha, evalScore);
+                        if (beta <= alpha) break;
+                    }
+                    return bestEval;
+                } else {
+                    let bestEval = Infinity;
+                    for (let move of moves) {
+                        gameInstance.move(move);
+                        let evalScore = minimax(gameInstance, depth - 1, alpha, beta, !isMaximizing, maxPositions);
+                        gameInstance.undo();
+                        bestEval = Math.min(bestEval, evalScore);
+                        beta = Math.min(beta, evalScore);
+                        if (beta <= alpha) break;
+                    }
+                    return bestEval;
+                }
+            }
+
+            self.onmessage = function(e) {
+                const req = e.data;
+                try {
+                    const tempGame = new Chess(req.fen);
+                    const moves = tempGame.moves({ verbose: true });
+                    let bestMove = null;
+                    const aiColor = req.aiColor;
+                    let bestValue = aiColor === 'w' ? -Infinity : Infinity;
+                    positionCount = 0;
+                    const start = performance.now();
+
+                    moves.sort(() => Math.random() - 0.5);
+                    const maxPositions = Math.max(1000, 500 * req.aiDepth);
+
+                    for (let move of moves) {
+                        tempGame.move(move);
+                        const isMaximizingNow = (tempGame.turn() === 'w');
+                        const boardValue = minimax(tempGame, Math.max(0, req.aiDepth - 1), -Infinity, Infinity, isMaximizingNow, maxPositions);
+                        tempGame.undo();
+
+                        if (aiColor === 'w') {
+                            if (boardValue > bestValue) { bestValue = boardValue; bestMove = move; }
+                        } else {
+                            if (boardValue < bestValue) { bestValue = boardValue; bestMove = move; }
+                        }
+                        if (positionCount > maxPositions) break;
+                    }
+
+                    const end = performance.now();
+                    const rawScore = evaluateBoard(tempGame) / 100;
+
+                    self.postMessage({
+                        requestId: req.requestId,
+                        move: bestMove ? { from: bestMove.from, to: bestMove.to, promotion: bestMove.promotion || null } : null,
+                        positionCount: positionCount,
+                        elapsedMs: Math.round(end - start),
+                        rawScore: rawScore
+                    });
+                } catch (err) {
+                    self.postMessage({ requestId: req.requestId, move: null, error: String(err) });
+                }
+            };
+        `;
+
+        let jsEngineWorker = null;
+        let jsEngineReady = false;
+        const jsEnginePendingResolvers = {};
+        let jsEngineRequestCounter = 0;
+
+        function initJsEngineWorker() {
+            try {
+                const blob = new Blob([JS_ENGINE_WORKER_SOURCE], { type: 'application/javascript' });
+                const blobUrl = URL.createObjectURL(blob);
+                jsEngineWorker = new Worker(blobUrl);
+                jsEngineWorker.onmessage = function(e) {
+                    const data = e.data;
+                    const resolver = jsEnginePendingResolvers[data.requestId];
+                    if (resolver) {
+                        delete jsEnginePendingResolvers[data.requestId];
+                        resolver(data);
+                    }
+                };
+                jsEngineWorker.onerror = function(err) {
+                    console.warn('Local engine worker errored; using synchronous last-resort fallback.', err);
+                    jsEngineReady = false;
+                    // Reject any in-flight request so callers don't hang forever.
+                    Object.keys(jsEnginePendingResolvers).forEach((id) => {
+                        jsEnginePendingResolvers[id]({ move: null, error: 'worker-error' });
+                        delete jsEnginePendingResolvers[id];
+                    });
+                    if (jsEngineWorker) { jsEngineWorker.terminate(); jsEngineWorker = null; }
+                };
+                jsEngineReady = true;
+            } catch (err) {
+                console.warn('Could not construct local engine worker; using synchronous last-resort fallback.', err);
+                jsEngineWorker = null;
+                jsEngineReady = false;
+            }
+        }
+
+        function getBestMoveFromWorker(gameInstance) {
+            return new Promise((resolve) => {
+                const requestId = ++jsEngineRequestCounter;
+                jsEnginePendingResolvers[requestId] = (data) => {
+                    if (!data.move) { resolve(null); return; }
+                    const applied = gameInstance.move({
+                        from: data.move.from,
+                        to: data.move.to,
+                        promotion: data.move.promotion || 'q'
+                    });
+                    $('#pos-count').text((data.positionCount || 0).toLocaleString());
+                    $('#search-time').text((data.elapsedMs || 0) + 'ms');
+                    if (typeof data.rawScore === 'number') {
+                        $('#eval-text').text(data.rawScore.toFixed(2));
+                        const percentage = Math.max(5, Math.min(95, 50 + (data.rawScore * 10)));
+                        $('#adv-white').css('width', percentage + '%');
+                        $('#adv-black').css('width', (100 - percentage) + '%');
+                    }
+                    resolve(applied);
+                };
+                jsEngineWorker.postMessage({
+                    requestId: requestId,
+                    fen: gameInstance.fen(),
+                    aiDepth: aiDepth,
+                    aiColor: gameInstance.turn()
+                });
+            });
+        }
+
+        // Single entry point used by makeBestMove(): routes to the Worker when it's available,
+        // otherwise to the chunked synchronous last-resort path.
+        async function getLocalEngineMove(gameInstance) {
+            if (jsEngineWorker && jsEngineReady) {
+                return await getBestMoveFromWorker(gameInstance);
+            }
+            return await getBestMoveLastResort(gameInstance);
+        }
+
+        function refreshEngineLabel() {
+            if (!selectedEngineName) return;
+            const wantsStockfish = selectedEngineName.toLowerCase().includes('stockfish');
+            if (wantsStockfish && !stockfishReady) {
+                const suffix = stockfishPermanentlyDisabled ? ' (using local engine)' : ' (connecting…)';
+                $('#ai-rating').text(`Simulated Depth: ${aiDepth}${suffix}`);
+            } else {
+                $('#ai-rating').text(`Simulated Depth: ${aiDepth}`);
+            }
+        }
+
+        /* --- UI LOGIC --- */
+        $('#toggle-eval').on('change', function() {
+            if ($(this).is(':checked')) $('#eval-panel').show();
+            else $('#eval-panel').hide();
+        });
+
+        function onDragStart(source, piece, position, orientation) {
+            if (!gameActive) return false;
+            if (game.game_over()) return false;
+            // Only pick up own pieces
+            if ((userColor === 'w' && piece.search(/^b/) !== -1) || 
+                (userColor === 'b' && piece.search(/^w/) !== -1)) {
+                return false;
+            }
+        }
+
+        function onDrop(source, target) {
+            const moveData = { from: source, to: target, promotion: 'q' };
+            const piece = game.get(source);
+            
+            // Handle Pawn Promotion Pre-check
+            if (piece && piece.type === 'p' && 
+               ((piece.color === 'w' && target[1] === '8') || (piece.color === 'b' && target[1] === '1'))) {
+                
+                // Validate move technically first
+                const tempMove = game.move({ from: source, to: target, promotion: 'q' });
+                if (tempMove === null) return 'snapback';
+                game.undo();
+
+                promotionMove = { from: source, to: target };
+                $('#promotion-modal').removeClass('hidden');
+                return 'snapback';
+            }
+
+            const move = game.move(moveData);
+            if (move === null) return 'snapback';
+
+            // play move sound
+            playSound('move');
+
+            // Timer Increment: human made a move -> add increment to the side that moved (user)
+            if (!timerUnlimited && timeIncrement > 0) {
+                if (move.color === 'w') whiteTime += timeIncrement;
+                else blackTime += timeIncrement;
+                updateClockDisplay();
+            }
+
+            updateStatus();
+            
+            // AI Response Delay
+            window.setTimeout(makeBestMove, 250);
+        }
+
+        function selectPromotion(pieceType) {
+            $('#promotion-modal').addClass('hidden');
+            game.move({ ...promotionMove, promotion: pieceType });
+            board.position(game.fen());
+            
+            // play move sound
+            playSound('move');
+
+            // Timer Increment: the player promoted -> add increment to the side that moved (user)
+            if (!timerUnlimited && timeIncrement > 0) {
+                const lastMove = game.history({ verbose: true }).slice(-1)[0];
+                if (lastMove) {
+                    if (lastMove.color === 'w') whiteTime += timeIncrement;
+                    else blackTime += timeIncrement;
+                }
+                updateClockDisplay();
+            }
+
+            updateStatus();
+            window.setTimeout(makeBestMove, 250);
+        }
+
+        // Strictly matches a real UCI move token (e.g. "e2e4" or "e7e8q") and nothing else.
+        // BUG (original): the code decided a string was a raw UCI move whenever its length was
+        // >= 4. But plenty of legitimate SAN strings are also 4+ characters — "Qxe4+" (5),
+        // "O-O-O" (5), "e8=Q+" (5) — so those were first mis-parsed as { from: 'Qx', to: 'e4',
+        // promotion: '+' }, which chess.js rejects, and only "worked" because a second attempt
+        // re-passed the original string as SAN. That's a wasted invalid move attempt on every
+        // one of those moves; a strict regex removes the ambiguity instead of relying on the
+        // retry to quietly paper over it.
+        const UCI_MOVE_RE = /^[a-h][1-8][a-h][1-8][qrbnQRBN]?$/;
+
+        async function makeBestMove() {
+            if (game.game_over() || !gameActive) return;
+            if (game.turn() === userColor) return;
+
+            $('#status').text("AI Thinking...");
+
+            // Choose engine: attempt Stockfish if selected and ready (and not permanently
+            // disabled after a prior failure), otherwise use the local engine.
+            const useSF = !stockfishPermanentlyDisabled && stockfishReady &&
+                selectedEngineName && selectedEngineName.toLowerCase().includes('stockfish');
+
+            let moveObj = null;
+
+            if (useSF) {
+                const fen = game.fen();
+                const depthForSF = Math.min(20, Math.max(1, aiDepth + 1));
+                const sfMove = await stockfishGetBestMove(fen, depthForSF);
+                if (sfMove && UCI_MOVE_RE.test(sfMove)) {
+                    const from = sfMove.substring(0, 2);
+                    const to = sfMove.substring(2, 4);
+                    const promotion = sfMove.length > 4 ? sfMove[4].toLowerCase() : undefined;
+                    moveObj = game.move({ from, to, promotion: promotion || 'q' });
+                }
+                if (!moveObj) {
+                    // Stockfish didn't return a usable move this turn — use the local engine.
+                    moveObj = await getLocalEngineMove(game);
+                }
+            } else {
+                moveObj = await getLocalEngineMove(game);
+            }
+
+            if (!moveObj) {
+                // couldn't apply move -> just update status and return
+                updateStatus();
+                return;
+            }
+
+            board.position(game.fen());
+            playSound('move');
+
+            // Timer Increment: AI moved -> add increment to the side that moved (AI)
+            if (!timerUnlimited && timeIncrement > 0) {
+                const lastMove = game.history({ verbose: true }).slice(-1)[0];
+                if (lastMove) {
+                    if (lastMove.color === 'w') whiteTime += timeIncrement;
+                    else blackTime += timeIncrement;
+                }
+                updateClockDisplay();
+            }
+
+            updateStatus();
+        }
+
+        function onSnapEnd() {
+            board.position(game.fen());
+        }
+
+        function updateStatus() {
+            // Terminal checks
+            if (game.in_checkmate()) {
+                const winner = game.turn() === 'w' ? 'b' : 'w';
+                endGame(winner, 'Checkmate');
+                return;
+            } else if (game.in_draw()) {
+                endGame('draw', 'Draw');
+                return;
+            } else {
+                let statusMsg = (game.turn() === userColor ? "Your Turn" : "AI Thinking...");
+                if (game.in_check()) statusMsg += ' (Check!)';
+                $('#status').text(statusMsg);
+            }
+
+            // play check sound only when entering a check state
+            const nowCheck = game.in_check();
+            if (nowCheck && !lastCheckState) {
+                playSound('check');
+            }
+            lastCheckState = nowCheck;
+
+            updateMoveHistory();
+            updateClockDisplay();
+        }
+
+        function updateMoveHistory() {
+            const history = game.history();
+            const container = $('#move-history');
+            container.empty();
+            for (let i = 0; i < history.length; i += 2) {
+                container.append(`
+                    <div class="flex text-xs border-b border-zinc-800/50 last:border-0 hover:bg-zinc-800/50 p-1">
+                        <span class="w-8 text-zinc-500 font-mono text-center">${Math.floor(i/2) + 1}.</span>
+                        <span class="w-1/2 pl-2 font-bold ${i%2===0 ? 'text-white' : 'text-zinc-300'}">${history[i]}</span>
+                        <span class="w-1/2 pl-2 font-bold text-blue-400">${history[i+1] || ''}</span>
+                    </div>
+                `);
+            }
+            container.scrollTop(container[0].scrollHeight);
+        }
+
+        // Init chessboard
+        const config = {
+            draggable: true,
+            position: 'start',
+            onDragStart: onDragStart,
+            onDrop: onDrop,
+            onSnapEnd: onSnapEnd,
+            pieceTheme: 'https://chessboardjs.com/img/chesspieces/wikipedia/{piece}.png'
+        };
+        board = Chessboard('myBoard', config);
+        $(window).on('resize', board.resize);
+
+        // Buttons
+        $('#resignBtn').on('click', () => {
+            if(gameActive) endGame(userColor === 'w' ? 'b' : 'w', 'Resignation');
+        });
+
+        $('#undoBtn').on('click', () => {
+            const hist = game.history();
+            if (hist.length === 0) return;
+            // Undo last move (either player or AI) then attempt to undo one more to return to a user's turn
+            game.undo();
+            // If it's still not user's turn and there are moves, undo once more
+            if (game.history().length > 0 && game.turn() !== userColor) {
+                game.undo();
+            }
+            board.position(game.fen());
+            updateStatus();
+            gameActive = true;
+            $('#game-over-modal').addClass('hidden');
+
+            // ensure timer is running
+            if (!timerInterval) {
+                lastTimerTimestamp = performance.now();
+                timerInterval = setInterval(timerTick, 1000);
+            }
+        });
+
+        // NOTE: the #toggle-eval change handler is bound once, in the UI LOGIC section above.
+        // (A duplicate binding here was removed — it caused the show/hide toggle to fire twice per click.)
+
+        // Load engines at startup (best-effort). Both are Worker-based so neither blocks the UI thread.
+        initJsEngineWorker();
+        loadStockfishWorker();
+
+        // Resume WebAudio playback on first user gesture (autoplay policies suspend AudioContext
+        // created outside a user interaction, which would otherwise silently mute all move/check sounds).
+        $(document).one('pointerdown keydown', () => {
+            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+        });
+
+        // open settings on first load
+        openSettings();
+
+    </script>
+</body>
+</html>
