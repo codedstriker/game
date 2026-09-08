@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Neon Core Harvester</title>
+<style>
+  :root{
+    --cyan:#00f6ff; --magenta:#ff2edb; --violet:#b46bff; --gold:#ffcf3f; --danger:#ff4d6d;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;overflow:hidden;background:#030308;
+    font-family:'Segoe UI',system-ui,-apple-system,Arial,sans-serif;color:#e8f6ff;}
+  body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+    background-image:
+      repeating-linear-gradient(0deg, rgba(0,246,255,0.035) 0 1px, transparent 1px 48px),
+      repeating-linear-gradient(90deg, rgba(0,246,255,0.035) 0 1px, transparent 1px 48px);
+    mask-image:radial-gradient(ellipse at center, black 0%, transparent 75%);}
+  canvas{position:fixed;inset:0;display:block;touch-action:none;cursor:crosshair;z-index:1;}
+  #ui{position:fixed;inset:0;pointer-events:none;z-index:2;}
+  .topbar{position:fixed;top:0;left:0;right:0;display:flex;align-items:flex-start;
+    justify-content:space-between;gap:12px;padding:14px 18px;pointer-events:none;
+    background:linear-gradient(to bottom, rgba(3,3,10,0.85), transparent 100%);flex-wrap:wrap;}
+  .brand{font-weight:800;font-size:15px;letter-spacing:2px;color:var(--cyan);
+    text-shadow:0 0 12px rgba(0,246,255,0.8);line-height:1.15;pointer-events:auto;}
+  .brand span{display:block;font-size:11px;color:var(--magenta);letter-spacing:4px;
+    text-shadow:0 0 10px rgba(255,46,219,0.8);}
+  .stats{display:flex;gap:10px;pointer-events:auto;}
+  .stat{background:rgba(12,10,30,0.55);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+    border:1px solid rgba(0,246,255,0.25);border-radius:12px;padding:6px 14px;min-width:110px;text-align:center;}
+  .stat .label{display:block;font-size:9px;letter-spacing:2px;opacity:0.6;margin-bottom:2px;}
+  .stat #elEnergy{font-family:Consolas,monospace;font-size:18px;color:var(--gold);
+    text-shadow:0 0 8px rgba(255,207,63,0.7);}
+  .stat #elDM{font-family:Consolas,monospace;font-size:18px;color:var(--violet);
+    text-shadow:0 0 8px rgba(180,107,255,0.7);}
+  .prestige-wrap{pointer-events:auto;display:flex;flex-direction:column;align-items:flex-end;gap:4px;min-width:190px;}
+  .prestige-bar{width:100%;height:6px;border-radius:4px;background:rgba(255,255,255,0.08);overflow:hidden;
+    border:1px solid rgba(180,107,255,0.3);}
+  .prestige-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--violet),var(--magenta));
+    box-shadow:0 0 8px var(--violet);transition:width 0.2s;}
+  .prestige-btn{cursor:pointer;border:1px solid rgba(180,107,255,0.6);border-radius:10px;
+    background:linear-gradient(135deg, rgba(180,107,255,0.25), rgba(255,46,219,0.25));
+    color:#fff;padding:6px 14px;font-weight:700;font-size:11px;letter-spacing:1px;
+    box-shadow:0 0 16px rgba(180,107,255,0.35);}
+  .prestige-btn small{font-weight:400;opacity:0.8;font-size:9px;letter-spacing:0;}
+  .prestige-btn:disabled{opacity:0.4;filter:grayscale(0.6);cursor:not-allowed;box-shadow:none;}
+  .prestige-btn:not(:disabled):hover{filter:brightness(1.3);}
+  .combo{position:fixed;top:78px;left:50%;transform:translateX(-50%);pointer-events:none;
+    font-family:Consolas,monospace;font-size:22px;font-weight:700;color:var(--magenta);
+    text-shadow:0 0 14px rgba(255,46,219,0.9);opacity:0;transition:opacity 0.15s;z-index:3;}
+  .panel{position:fixed;top:82px;right:16px;width:300px;max-height:calc(100vh - 110px);
+    overflow-y:auto;padding:14px;border-radius:16px;background:rgba(10,9,26,0.6);
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+    border:1px solid rgba(0,246,255,0.2);box-shadow:0 0 30px rgba(0,246,255,0.08);
+    pointer-events:auto;}
+  .panel::-webkit-scrollbar{width:6px;}
+  .panel::-webkit-scrollbar-thumb{background:rgba(0,246,255,0.4);border-radius:3px;}
+  .panel h3{margin:2px 0 10px;font-size:13px;letter-spacing:2px;color:var(--cyan);}
+  .upgrade-row{display:flex;align-items:center;gap:10px;padding:8px 6px;border-radius:10px;
+    border:1px solid rgba(255,255,255,0.06);margin-bottom:8px;background:rgba(255,255,255,0.02);}
+  .u-icon{font-size:20px;width:28px;text-align:center;color:var(--cyan);text-shadow:0 0 8px currentColor;}
+  .u-info{flex:1;min-width:0;}
+  .u-name{font-size:12px;font-weight:700;}
+  .u-lvl{float:right;font-weight:400;opacity:0.7;font-size:10px;}
+  .u-desc{font-size:10px;opacity:0.6;margin-top:2px;}
+  .u-buy{cursor:pointer;border:1px solid rgba(0,246,255,0.4);background:rgba(0,246,255,0.08);
+    color:var(--gold);border-radius:8px;padding:6px 8px;font-size:11px;font-family:Consolas,monospace;
+    white-space:nowrap;}
+  .u-buy:disabled{opacity:0.35;cursor:not-allowed;}
+  .u-buy:not(:disabled):hover{background:rgba(0,246,255,0.2);}
+  .hint{font-size:10px;opacity:0.5;line-height:1.4;margin-top:4px;}
+  .panel-toggle{display:none;position:fixed;top:82px;right:16px;z-index:4;pointer-events:auto;
+    width:38px;height:38px;border-radius:50%;border:1px solid rgba(0,246,255,0.4);
+    background:rgba(10,9,26,0.7);color:var(--cyan);font-size:16px;}
+  #flash{position:fixed;inset:0;pointer-events:none;z-index:5;opacity:0;
+    background:radial-gradient(circle, rgba(255,255,255,0.9), rgba(180,107,255,0.5) 40%, transparent 70%);
+    transition:opacity 0.9s ease-out;}
+  @media (max-width:720px){
+    .panel{transform:translateX(120%);transition:transform 0.25s;top:76px;width:78vw;}
+    .panel.open{transform:translateX(0);}
+    .panel-toggle{display:block;}
+    .stat{min-width:86px;padding:5px 8px;}
+    .brand{font-size:12px;}
+  }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="flash"></div>
+<div id="ui">
+  <div class="topbar">
+    <div class="brand">NEON CORE<span>HARVESTER</span></div>
+    <div class="stats">
+      <div class="stat"><span class="label">ENERGY</span><span id="elEnergy">0</span></div>
+      <div class="stat"><span class="label">DARK MATTER</span><span id="elDM">0</span></div>
+    </div>
+    <div class="prestige-wrap">
+      <div class="prestige-bar"><div id="elProgress" class="prestige-fill"></div></div>
+      <button id="prestigeBtn" class="prestige-btn">SINGULARITY SHIFT<br><small>Requires <span id="elThresh">0</span></small></button>
+    </div>
+  </div>
+  <div id="comboDisplay" class="combo"></div>
+  <button id="panelToggle" class="panel-toggle">&#9881;</button>
+  <div id="panel" class="panel">
+    <h3>UPGRADES</h3>
+    <div id="upgradeList"></div>
+    <p class="hint">Drag across cores to slice them. Chain slices fast for a combo multiplier, and watch for critical hits.</p>
+  </div>
+</div>
+<script>
+(function(){
+"use strict";
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+let W,H;
+function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight;}
+window.addEventListener('resize',resize);resize();
+
+/* ---------- audio ---------- */
+let actx;
+function ensureAudio(){
+  if(!actx){ try{actx=new (window.AudioContext||window.webkitAudioContext)();}catch(e){return;} }
+  if(actx.state==='suspended') actx.resume();
+}
+function tone(freq,dur,type,vol,slideTo){
+  if(!actx) return;
+  const t=actx.currentTime,osc=actx.createOscillator(),gain=actx.createGain();
+  osc.type=type; osc.frequency.setValueAtTime(freq,t);
+  if(slideTo) osc.frequency.exponentialRampToValueAtTime(slideTo,t+dur);
+  gain.gain.setValueAtTime(vol,t); gain.gain.exponentialRampToValueAtTime(0.001,t+dur);
+  osc.connect(gain).connect(actx.destination); osc.start(t); osc.stop(t+dur);
+}
+const sndSlice=()=>tone(650,0.09,'sawtooth',0.14,180);
+const sndPop=()=>tone(260+Math.random()*220,0.14,'square',0.16,70);
+const sndChime=()=>{tone(660,0.18,'sine',0.22,1320); tone(990,0.22,'sine',0.15,1980);};
+const sndBoom=()=>{tone(90,0.7,'sine',0.4,18); tone(45,0.9,'triangle',0.3,10);};
+
+/* ---------- state ---------- */
+const palette=['#00f6ff','#ff2edb','#7dff4d','#ffcf3f','#b46bff'];
+const upgMeta={
+  blade:{name:'Auto-Blade',desc:'Automatically slices a random core.',icon:'\u2694'},
+  laser:{name:'Pulse Laser',desc:'Periodically sweeps and slices all cores.',icon:'\u2604'},
+  yield:{name:'Yield Booster',desc:'Increases base energy per slice.',icon:'\u2726'},
+  freq:{name:'Frequency Booster',desc:'Increases core spawn rate.',icon:'\u26A1'},
+  crit:{name:'Critical Strike',desc:'Increases chance of a 3x critical slice.',icon:'\u2605'},
+  combo:{name:'Combo Multiplier',desc:'Boosts reward scaling from combo chains.',icon:'\u221E'}
+};
+const state={
+  energy:0,totalEarned:0,darkMatter:0,prestigeCount:0,
+  upgrades:{
+    blade:{lvl:0,base:50,mult:1.15},
+    laser:{lvl:0,base:500,mult:1.22},
+    yield:{lvl:0,base:20,mult:1.13},
+    freq:{lvl:0,base:100,mult:1.18},
+    crit:{lvl:0,base:150,mult:1.17},
+    combo:{lvl:0,base:80,mult:1.15}
+  }
+};
+const getCost=u=>Math.floor(u.base*Math.pow(u.mult,u.lvl));
+const prestigeThreshold=()=>Math.floor(100000*Math.pow(1.6,state.prestigeCount));
+function formatNum(n){
+  n=Math.floor(n);
+  if(n<1000) return n.toString();
+  const units=['K','M','B','T','Qa','Qi'];let u=-1,v=n;
+  while(v>=1000&&u<units.length-1){v/=1000;u++;}
+  return v.toFixed(2)+units[u];
+}
+
+/* ---------- entities ---------- */
+let shapes=[],particles=[],floatingTexts=[],trail=[];
+let isDown=false,combo=0,comboTimer=0,shake=0,laserFlash=0;
+let spawnTimer=0,bladeTimer=0,laserTimer=0,autosaveTimer=10;
+
+function spawnShape(){
+  const sides=[3,4,5,6][Math.floor(Math.random()*4)];
+  const r=18+Math.random()*22;
+  const x=r+Math.random()*(W-2*r), y=r+Math.random()*(H-2*r);
+  const ang=Math.random()*Math.PI*2, spd=40+Math.random()*60;
+  shapes.push({x,y,r,sides,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd,
+    rot:Math.random()*Math.PI*2,vrot:(Math.random()-0.5)*2.2,
+    color:palette[Math.floor(Math.random()*palette.length)],value:Math.round(r*0.85)});
+}
+function spawnParticles(x,y,color,n){
+  for(let i=0;i<n;i++){
+    const a=Math.random()*Math.PI*2, s=40+Math.random()*160;
+    particles.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,life:1,color,size:2+Math.random()*3});
+  }
+}
+function sliceShape(shape,isAuto){
+  const idx=shapes.indexOf(shape); if(idx<0) return;
+  shapes.splice(idx,1);
+  if(!isAuto){ combo++; comboTimer=1.3; }
+  const comboMult=1+(combo-1)*0.1*(1+state.upgrades.combo.lvl*0.08);
+  const critChance=Math.min(0.5,0.05+state.upgrades.crit.lvl*0.01);
+  const isCrit=Math.random()<critChance;
+  const base=shape.value*(1+state.upgrades.yield.lvl*0.25);
+  const dmMult=1+state.darkMatter*0.1;
+  let reward=Math.round(base*comboMult*dmMult*(isCrit?3:1));
+  state.energy+=reward; state.totalEarned+=reward;
+  spawnParticles(shape.x,shape.y,shape.color,isCrit?18:10);
+  floatingTexts.push({x:shape.x,y:shape.y,text:(isCrit?'CRIT! +':'+')+formatNum(reward),
+    life:1,color:isCrit?'#ff4d6d':shape.color});
+  shake=Math.min(20,shake+(isCrit?9:4));
+  if(!isAuto) sndSlice();
+  sndPop();
+}
+function distToSeg(px,py,x1,y1,x2,y2){
+  const dx=x2-x1,dy=y2-y1,lenSq=dx*dx+dy*dy;
+  let t=lenSq?((px-x1)*dx+(py-y1)*dy)/lenSq:0;
+  t=Math.max(0,Math.min(1,t));
+  return Math.hypot(px-(x1+t*dx),py-(y1+t*dy));
+}
+function checkSlice(p1,p2){
+  for(let i=shapes.length-1;i>=0;i--){
+    const s=shapes[i];
+    if(distToSeg(s.x,s.y,p1.x,p1.y,p2.x,p2.y)<s.r) sliceShape(s,false);
+  }
+}
+
+/* ---------- input ---------- */
+function getPos(e){
+  const t=e.touches?e.touches[0]:e;
+  return {x:t.clientX,y:t.clientY,t:performance.now()};
+}
+canvas.addEventListener('pointerdown',e=>{isDown=true;ensureAudio();trail=[getPos(e)];});
+window.addEventListener('pointerup',()=>isDown=false);
+window.addEventListener('pointercancel',()=>isDown=false);
+canvas.addEventListener('pointermove',e=>{
+  if(!isDown) return;
+  const p=getPos(e), prev=trail[trail.length-1];
+  if(prev) checkSlice(prev,p);
+  trail.push(p);
+  if(trail.length>25) trail.shift();
+});
+
+/* ---------- upgrades / prestige ---------- */
+function buyUpgrade(key){
+  const u=state.upgrades[key], cost=getCost(u);
+  if(state.energy>=cost){ state.energy-=cost; u.lvl++; sndChime(); save(); }
+}
+const flashEl=document.getElementById('flash');
+function doPrestige(){
+  const thresh=prestigeThreshold();
+  if(state.totalEarned<thresh) return;
+  const gain=Math.max(1,Math.floor(Math.sqrt(state.totalEarned/thresh)));
+  state.darkMatter+=gain; state.prestigeCount++;
+  state.energy=0; state.totalEarned=0;
+  for(const k in state.upgrades) state.upgrades[k].lvl=0;
+  shapes=[]; particles=[]; floatingTexts=[];
+  shake=25; sndBoom();
+  flashEl.style.transition='none'; flashEl.style.opacity=1;
+  requestAnimationFrame(()=>{flashEl.style.transition='opacity 0.9s ease-out';flashEl.style.opacity=0;});
+  save();
+}
+
+/* ---------- persistence ---------- */
+function save(){
+  const levels={}; for(const k in state.upgrades) levels[k]=state.upgrades[k].lvl;
+  localStorage.setItem('nch_save',JSON.stringify({
+    energy:state.energy,totalEarned:state.totalEarned,darkMatter:state.darkMatter,
+    prestigeCount:state.prestigeCount,levels
+  }));
+}
+function load(){
+  const raw=localStorage.getItem('nch_save'); if(!raw) return;
+  try{
+    const d=JSON.parse(raw);
+    state.energy=d.energy||0; state.totalEarned=d.totalEarned||0;
+    state.darkMatter=d.darkMatter||0; state.prestigeCount=d.prestigeCount||0;
+    if(d.levels) for(const k in d.levels) if(state.upgrades[k]) state.upgrades[k].lvl=d.levels[k]||0;
+  }catch(e){}
+}
+window.addEventListener('beforeunload',save);
+
+/* ---------- UI wiring ---------- */
+const elEnergy=document.getElementById('elEnergy'),elDM=document.getElementById('elDM'),
+  elThresh=document.getElementById('elThresh'),elProgress=document.getElementById('elProgress'),
+  prestigeBtn=document.getElementById('prestigeBtn'),comboDisplay=document.getElementById('comboDisplay'),
+  upgradeList=document.getElementById('upgradeList');
+for(const key in state.upgrades){
+  const meta=upgMeta[key], row=document.createElement('div');
+  row.className='upgrade-row';
+  row.innerHTML='<div class="u-icon">'+meta.icon+'</div>'+
+    '<div class="u-info"><div class="u-name">'+meta.name+' <span class="u-lvl">Lv.<span id="lvl-'+key+'">0</span></span></div>'+
+    '<div class="u-desc">'+meta.desc+'</div></div>'+
+    '<button id="btn-'+key+'" class="u-buy"><span id="cost-'+key+'">0</span>&#9889;</button>';
+  upgradeList.appendChild(row);
+  row.querySelector('button').addEventListener('click',()=>buyUpgrade(key));
+}
+document.getElementById('panelToggle').addEventListener('click',()=>{
+  document.getElementById('panel').classList.toggle('open');
+});
+prestigeBtn.addEventListener('click',doPrestige);
+function updateUI(){
+  elEnergy.textContent=formatNum(state.energy);
+  elDM.textContent=formatNum(state.darkMatter);
+  const thresh=prestigeThreshold();
+  elThresh.textContent=formatNum(thresh);
+  elProgress.style.width=Math.min(100,state.totalEarned/thresh*100)+'%';
+  prestigeBtn.disabled=state.totalEarned<thresh;
+  for(const k in state.upgrades){
+    const u=state.upgrades[k],cost=getCost(u);
+    document.getElementById('lvl-'+k).textContent=u.lvl;
+    document.getElementById('cost-'+k).textContent=formatNum(cost);
+    document.getElementById('btn-'+k).disabled=state.energy<cost;
+  }
+  if(combo>1){ comboDisplay.style.opacity=1; comboDisplay.textContent='x'+combo+' COMBO'; }
+  else comboDisplay.style.opacity=0;
+}
+
+/* ---------- update / render ---------- */
+function update(dt){
+  spawnTimer-=dt;
+  if(spawnTimer<=0){ spawnShape(); spawnTimer=Math.max(0.3,1.4-state.upgrades.freq.lvl*0.05); }
+  for(const s of shapes){
+    s.x+=s.vx*dt; s.y+=s.vy*dt; s.rot+=s.vrot*dt;
+    if(s.x-s.r<0){s.x=s.r;s.vx*=-1;} if(s.x+s.r>W){s.x=W-s.r;s.vx*=-1;}
+    if(s.y-s.r<0){s.y=s.r;s.vy*=-1;} if(s.y+s.r>H){s.y=H-s.r;s.vy*=-1;}
+  }
+  if(state.upgrades.blade.lvl>0){
+    bladeTimer-=dt;
+    if(bladeTimer<=0){ bladeTimer=Math.max(0.5,4-state.upgrades.blade.lvl*0.15);
+      if(shapes.length) sliceShape(shapes[Math.floor(Math.random()*shapes.length)],true); }
+  }
+  if(state.upgrades.laser.lvl>0){
+    laserTimer-=dt;
+    if(laserTimer<=0){ laserTimer=Math.max(2,10-state.upgrades.laser.lvl*0.4);
+      if(shapes.length){ for(const s of [...shapes]) sliceShape(s,true); laserFlash=1; sndBoom(); shake=Math.min(20,shake+10); } }
+  }
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i]; p.x+=p.vx*dt; p.y+=p.vy*dt; p.vx*=0.94; p.vy*=0.94; p.life-=dt*1.8;
+    if(p.life<=0) particles.splice(i,1);
+  }
+  for(let i=floatingTexts.length-1;i>=0;i--){
+    const f=floatingTexts[i]; f.y-=40*dt; f.life-=dt*1.1;
+    if(f.life<=0) floatingTexts.splice(i,1);
+  }
+  if(comboTimer>0){ comboTimer-=dt; if(comboTimer<=0) combo=0; }
+  shake*=0.9; if(shake<0.1) shake=0;
+  laserFlash*=0.9; if(laserFlash<0.02) laserFlash=0;
+  const now=performance.now();
+  trail=trail.filter(p=>now-p.t<180);
+  autosaveTimer-=dt; if(autosaveTimer<=0){ save(); autosaveTimer=10; }
+  updateUI();
+}
+function drawShape(s){
+  ctx.save(); ctx.translate(s.x,s.y); ctx.rotate(s.rot);
+  ctx.beginPath();
+  for(let i=0;i<s.sides;i++){
+    const a=i/s.sides*Math.PI*2, px=Math.cos(a)*s.r, py=Math.sin(a)*s.r;
+    if(i===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+  }
+  ctx.closePath();
+  ctx.shadowBlur=25; ctx.shadowColor=s.color;
+  ctx.strokeStyle=s.color; ctx.lineWidth=3; ctx.stroke();
+  ctx.fillStyle=s.color+'22'; ctx.fill();
+  ctx.restore();
+}
+function render(){
+  ctx.save();
+  if(shake>0){ ctx.translate((Math.random()-0.5)*shake,(Math.random()-0.5)*shake); }
+  ctx.fillStyle='rgba(4,3,13,0.32)'; ctx.fillRect(-30,-30,W+60,H+60);
+
+  if(laserFlash>0){
+    ctx.save(); ctx.globalAlpha=laserFlash;
+    const g=ctx.createLinearGradient(0,H/2-40,0,H/2+40);
+    g.addColorStop(0,'rgba(255,46,219,0)'); g.addColorStop(0.5,'rgba(255,255,255,0.9)'); g.addColorStop(1,'rgba(255,46,219,0)');
+    ctx.fillStyle=g; ctx.fillRect(0,H/2-40,W,80); ctx.restore();
+  }
+  for(const s of shapes) drawShape(s);
+  for(const p of particles){
+    ctx.save(); ctx.globalAlpha=Math.max(0,p.life);
+    ctx.shadowBlur=12; ctx.shadowColor=p.color; ctx.fillStyle=p.color;
+    ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,Math.PI*2); ctx.fill(); ctx.restore();
+  }
+  if(trail.length>1){
+    ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round';
+    ctx.shadowBlur=20; ctx.shadowColor='#00f6ff';
+    for(let i=1;i<trail.length;i++){
+      const a=i/trail.length;
+      ctx.strokeStyle='rgba(0,246,255,'+a+')'; ctx.lineWidth=6*a;
+      ctx.beginPath(); ctx.moveTo(trail[i-1].x,trail[i-1].y); ctx.lineTo(trail[i].x,trail[i].y); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  for(const f of floatingTexts){
+    ctx.save(); ctx.globalAlpha=Math.max(0,f.life); ctx.fillStyle=f.color;
+    ctx.font='bold 16px Consolas, monospace'; ctx.textAlign='center';
+    ctx.shadowBlur=10; ctx.shadowColor=f.color;
+    ctx.fillText(f.text,f.x,f.y); ctx.restore();
+  }
+  ctx.restore();
+}
+let last=performance.now();
+function loop(now){
+  const dt=Math.min((now-last)/1000,0.05); last=now;
+  update(dt); render();
+  requestAnimationFrame(loop);
+}
+load();
+ctx.fillStyle='#04040d'; ctx.fillRect(0,0,W,H);
+for(let i=0;i<5;i++) spawnShape();
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

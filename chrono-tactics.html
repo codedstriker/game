@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chrono-Tactics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --void:#0A0D18;
+  --void-2:#080A12;
+  --panel:#131A2C;
+  --panel-raised:#1C2540;
+  --panel-line:#2A3552;
+  --brass:#C9A227;
+  --brass-soft:#8a7226;
+  --rust:#B5482F;
+  --cyan:#4FD1D9;
+  --violet:#9B7ED9;
+  --parchment:#EDE6D6;
+  --dim:#8891A8;
+  --hp-red:#C24949;
+  --good:#5FBF77;
+  --font-display:'Cinzel', serif;
+  --font-body:'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono:'JetBrains Mono', 'Consolas', monospace;
+}
+*{box-sizing:border-box;}
+html,body{
+  height:100%; margin:0; background:var(--void); color:var(--parchment);
+  font-family:var(--font-body); overflow:hidden;
+}
+body{ min-height:100svh; }
+#bg-canvas{ position:fixed; inset:0; width:100%; height:100%; z-index:0; }
+#app{
+  position:relative; z-index:1; height:100svh; height:100vh; width:100vw;
+  overflow-y:auto; overflow-x:hidden; display:flex; flex-direction:column;
+}
+#modal-root{ position:relative; z-index:50; }
+button{ font-family:var(--font-body); cursor:pointer; }
+button:disabled{ cursor:not-allowed; opacity:0.45; }
+button:focus-visible, [tabindex]:focus-visible{ outline:2px solid var(--cyan); outline-offset:2px; }
+::-webkit-scrollbar{ width:9px; height:9px; }
+::-webkit-scrollbar-thumb{ background:var(--panel-raised); border-radius:5px; }
+::-webkit-scrollbar-track{ background:transparent; }
+
+.screen{
+  flex:1; display:flex; flex-direction:column; min-height:100%;
+  padding:22px clamp(14px,4vw,42px); animation:screenFade .35s ease;
+}
+@keyframes screenFade{ from{opacity:0; transform:translateY(6px);} to{opacity:1; transform:translateY(0);} }
+@media (prefers-reduced-motion: reduce){ .screen{animation:none;} }
+
+.btn{
+  font-family:var(--font-body); font-weight:600; font-size:14.5px;
+  padding:11px 20px; border-radius:3px; border:1px solid var(--panel-line);
+  background:var(--panel-raised); color:var(--parchment); transition:transform .12s ease, border-color .12s ease;
+}
+.btn:hover:not(:disabled){ transform:translateY(-1px); border-color:var(--brass); }
+.btn-primary{ background:linear-gradient(180deg,#d9b53a,var(--brass)); color:#241a04; border:1px solid #8a7226; font-weight:700; }
+.btn-primary:hover:not(:disabled){ border-color:#efd77a; }
+.btn-ghost{ background:transparent; }
+.btn-danger{ border-color:var(--rust); }
+.btn-danger:hover:not(:disabled){ border-color:#e06a4a; }
+.btn-row{ display:flex; gap:12px; flex-wrap:wrap; }
+
+.title-display{ font-family:var(--font-display); letter-spacing:0.02em; }
+
+/* ---------- TITLE SCREEN ---------- */
+#title-screen{ align-items:center; justify-content:center; text-align:center; gap:26px; }
+.game-logo{ font-size:clamp(38px,7vw,64px); font-weight:700; color:var(--parchment); text-shadow:0 0 28px rgba(79,209,217,0.35); }
+.game-logo .accent{ color:var(--brass); }
+.game-tag{ color:var(--dim); font-size:15px; max-width:520px; line-height:1.6; }
+.dial-deco{ opacity:0.85; }
+
+/* ---------- TOPBAR (map/battle) ---------- */
+.topbar{
+  display:flex; align-items:center; justify-content:space-between; gap:14px;
+  padding:10px 16px; background:rgba(19,26,44,0.7); border:1px solid var(--panel-line);
+  border-radius:4px; margin-bottom:16px; flex-wrap:wrap;
+}
+.topbar-left, .topbar-right{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; }
+.stat-chip{ display:flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:14px; color:var(--parchment); }
+.stat-chip .lbl{ color:var(--dim); font-size:11px; text-transform:none; }
+.icon-btn{ background:transparent; border:1px solid var(--panel-line); color:var(--parchment); border-radius:4px; width:34px; height:34px; font-size:16px; display:flex; align-items:center; justify-content:center; }
+.icon-btn:hover{ border-color:var(--brass); }
+
+/* ---------- MAP SCREEN ---------- */
+#map-screen{ gap:14px; }
+.map-wrap{ position:relative; flex:1; min-height:420px; border:1px solid var(--panel-line); border-radius:6px; background:radial-gradient(ellipse at center, rgba(28,37,64,0.55), rgba(10,13,24,0.4)); overflow:hidden; }
+#map-canvas{ position:absolute; inset:0; width:100%; height:100%; }
+.map-node-btn{
+  position:absolute; width:52px; height:52px; margin-left:-26px; margin-top:-26px;
+  border-radius:50%; border:2px solid var(--panel-line); background:var(--panel-raised);
+  color:var(--parchment); font-size:20px; display:flex; align-items:center; justify-content:center;
+  transition:transform .15s ease, border-color .15s ease, box-shadow .15s ease;
+}
+.map-node-btn.available{ border-color:var(--brass); box-shadow:0 0 14px rgba(201,162,39,0.55); cursor:pointer; }
+.map-node-btn.available:hover{ transform:scale(1.12); }
+.map-node-btn.visited{ opacity:0.4; border-color:var(--panel-line); }
+.map-node-btn.current{ border-color:var(--cyan); box-shadow:0 0 16px rgba(79,209,217,0.65); }
+.map-node-btn.locked{ opacity:0.35; cursor:default; }
+.map-legend{ display:flex; gap:18px; flex-wrap:wrap; font-size:12.5px; color:var(--dim); padding:8px 4px; }
+.map-legend span{ margin-right:5px; }
+
+/* ---------- BATTLE SCREEN ---------- */
+#battle-screen{ gap:10px; padding-bottom:10px; }
+.combatant-panel{ display:flex; align-items:center; gap:14px; padding:10px 14px; background:rgba(19,26,44,0.7); border:1px solid var(--panel-line); border-radius:5px; }
+.combatant-panel.enemy{ justify-content:flex-end; }
+.combatant-info{ flex:1; min-width:0; }
+.combatant-name{ font-family:var(--font-display); font-size:16px; margin-bottom:6px; display:flex; align-items:center; gap:8px; }
+.hp-bar-track{ height:14px; border-radius:3px; background:var(--void-2); border:1px solid var(--panel-line); overflow:hidden; position:relative; }
+.hp-bar-fill{ height:100%; background:linear-gradient(90deg,#7a2a1c,var(--hp-red)); transition:width .4s ease; }
+.hp-bar-fill.player-fill{ background:linear-gradient(90deg,#2f7a4a,var(--good)); }
+.hp-bar-text{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-family:var(--font-mono); font-size:10.5px; color:var(--parchment); text-shadow:0 1px 2px #000; }
+.badge-row{ display:flex; gap:6px; margin-top:6px; flex-wrap:wrap; min-height:22px; }
+.badge{ font-family:var(--font-mono); font-size:11.5px; padding:2px 7px; border-radius:10px; border:1px solid var(--panel-line); background:var(--panel-raised); display:flex; align-items:center; gap:4px; }
+.badge.block{ color:var(--brass); border-color:var(--brass-soft); }
+.badge.frozen{ color:var(--cyan); border-color:var(--cyan); }
+.badge.poison{ color:var(--violet); border-color:var(--violet); }
+.badge.haste{ color:#f0d060; border-color:var(--brass); }
+.badge.intent{ color:var(--parchment); background:var(--void-2); font-size:13px; }
+
+.stage{ position:relative; flex:1; min-height:190px; display:flex; align-items:center; justify-content:space-around; border:1px solid var(--panel-line); border-radius:6px; background:linear-gradient(180deg, rgba(28,37,64,0.35), rgba(10,13,24,0.25)); overflow:hidden; }
+.stage.shake{ animation:stageShake .35s ease; }
+@keyframes stageShake{ 10%,90%{transform:translateX(-1px);} 20%,80%{transform:translateX(3px);} 30%,50%,70%{transform:translateX(-6px);} 40%,60%{transform:translateX(6px);} }
+#battle-fx{ position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+.avatar-wrap{ display:flex; flex-direction:column; align-items:center; gap:6px; z-index:1; }
+.avatar-wrap svg{ animation:avatarPulse 3.4s ease-in-out infinite; filter:drop-shadow(0 0 10px rgba(0,0,0,0.5)); }
+@keyframes avatarPulse{ 0%,100%{transform:scale(1);} 50%{transform:scale(1.045);} }
+@media (prefers-reduced-motion: reduce){ .avatar-wrap svg{animation:none;} }
+.avatar-label{ font-family:var(--font-mono); font-size:11px; color:var(--dim); }
+
+.clock-zone{ display:flex; align-items:center; justify-content:center; gap:22px; padding:6px 0; }
+.clock-wrap{ position:relative; width:118px; height:118px; }
+#clock-canvas{ width:118px; height:118px; }
+.clock-digits{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; pointer-events:none; }
+.clock-num{ font-family:var(--font-mono); font-weight:700; font-size:34px; line-height:1; }
+.clock-unit{ font-family:var(--font-mono); font-size:10px; color:var(--dim); letter-spacing:0.08em; }
+.threshold-note{ font-size:12px; color:var(--dim); max-width:220px; line-height:1.5; }
+.threshold-note b{ color:var(--rust); }
+
+.hand-zone{ display:flex; flex-direction:column; align-items:center; gap:8px; }
+.hand-row{ display:flex; justify-content:center; align-items:flex-end; min-height:210px; gap:0; flex-wrap:nowrap; overflow-x:auto; width:100%; padding:10px 4px 4px; }
+.card{
+  width:128px; min-width:112px; height:184px; margin:0 -12px; background:var(--panel-raised);
+  border:2px solid var(--panel-line); position:relative; padding:10px 9px 9px; display:flex; flex-direction:column;
+  clip-path:polygon(10px 0,100% 0,100% calc(100% - 10px),calc(100% - 10px) 100%,0 100%,0 10px);
+  transition:transform .16s ease, border-color .16s ease, box-shadow .16s ease; flex-shrink:0;
+}
+.card:hover:not(.disabled){ transform:translateY(-14px) scale(1.03); z-index:5; box-shadow:0 10px 24px rgba(0,0,0,0.5); }
+.card.disabled{ filter:grayscale(0.6); opacity:0.55; }
+.card.attack{ border-color:var(--rust); }
+.card.defend{ border-color:var(--brass); }
+.card.status{ border-color:var(--violet); }
+.card.time{ border-color:var(--cyan); }
+.card-cost{
+  position:absolute; top:-10px; left:-10px; width:30px; height:30px; border-radius:50%;
+  background:var(--void-2); border:2px solid var(--brass); display:flex; align-items:center; justify-content:center;
+  font-family:var(--font-mono); font-weight:700; font-size:13px; color:var(--parchment);
+}
+.card-cost.discounted{ border-color:#f0d060; color:#f0d060; }
+.card-name{ font-family:var(--font-display); font-size:13px; margin:6px 0 4px; line-height:1.2; }
+.card-type-tag{ font-family:var(--font-mono); font-size:9.5px; text-transform:uppercase; letter-spacing:0.06em; color:var(--dim); margin-bottom:6px; }
+.card-desc{ font-size:11.2px; line-height:1.4; color:var(--parchment); flex:1; }
+.card.upgraded .card-name::after{ content:' +'; color:var(--brass); }
+.hand-controls{ display:flex; align-items:center; gap:18px; }
+.pile-counts{ font-family:var(--font-mono); font-size:12px; color:var(--dim); display:flex; gap:14px; }
+
+.floatie{ position:fixed; transform:translate(-50%,-50%); font-family:var(--font-mono); font-weight:700; font-size:23px; pointer-events:none; z-index:60; animation:floatUp 1s ease-out forwards; }
+@keyframes floatUp{ 0%{opacity:0; transform:translate(-50%,-25%) scale(0.75);} 14%{opacity:1; transform:translate(-50%,-55%) scale(1.08);} 100%{opacity:0; transform:translate(-50%,-140%) scale(1);} }
+
+.toast{ position:fixed; top:18px; left:50%; transform:translateX(-50%); background:var(--panel); border:1px solid var(--brass); color:var(--parchment); padding:10px 18px; border-radius:4px; font-size:13.5px; z-index:80; box-shadow:0 8px 20px rgba(0,0,0,0.5); animation:toastIn .25s ease, toastOut .4s ease 1.7s forwards; }
+@keyframes toastIn{ from{opacity:0; transform:translate(-50%,-12px);} to{opacity:1; transform:translate(-50%,0);} }
+@keyframes toastOut{ to{opacity:0; transform:translate(-50%,-12px);} }
+
+/* ---------- SIMPLE PANEL SCREENS (shop/event/rest/reward/gameover/victory) ---------- */
+.panel-screen{ align-items:center; justify-content:center; text-align:center; gap:20px; }
+.panel-box{ background:rgba(19,26,44,0.75); border:1px solid var(--panel-line); border-radius:8px; padding:32px clamp(18px,5vw,48px); max-width:640px; width:100%; }
+.panel-title{ font-family:var(--font-display); font-size:26px; margin:0 0 14px; color:var(--brass); }
+.panel-text{ color:var(--parchment); font-size:14.5px; line-height:1.7; margin-bottom:22px; }
+.offer-grid{ display:flex; gap:16px; justify-content:center; flex-wrap:wrap; margin-bottom:18px; }
+.offer-card{ width:150px; }
+.offer-price{ font-family:var(--font-mono); color:var(--brass); font-size:13px; margin-top:8px; }
+.service-row{ display:flex; gap:14px; justify-content:center; flex-wrap:wrap; margin-top:10px; }
+
+/* ---------- MODAL ---------- */
+.modal-backdrop{ position:fixed; inset:0; background:rgba(4,5,10,0.72); display:flex; align-items:center; justify-content:center; z-index:90; padding:20px; }
+.modal-box{ background:var(--panel); border:1px solid var(--brass-soft); border-radius:8px; padding:24px; max-width:560px; width:100%; max-height:80vh; overflow-y:auto; }
+.modal-box h3{ font-family:var(--font-display); color:var(--brass); margin-top:0; }
+.deck-list{ display:flex; flex-wrap:wrap; gap:10px; justify-content:center; }
+.deck-item{ width:120px; }
+.help-text{ text-align:left; font-size:13.5px; line-height:1.7; color:var(--parchment); }
+.help-text b{ color:var(--brass); }
+
+@media (max-width:640px){
+  .card{ width:104px; min-width:96px; height:164px; }
+  .clock-wrap{ width:96px; height:96px; } #clock-canvas{ width:96px; height:96px; }
+  .clock-num{ font-size:28px; }
+  .avatar-wrap svg{ width:64px; height:64px; }
+}
+</style>
+</head>
+<body>
+<canvas id="bg-canvas"></canvas>
+<div id="app"></div>
+<div id="modal-root"></div>
+
+<script>
+/* =========================================================================
+   CHRONO-TACTICS — a turn-based roguelite card battler with a time twist
+   Single-file implementation: DOM/CSS UI + Canvas FX + Web Audio SFX
+   ========================================================================= */
+
+/* ---------------------------- UTILITIES -------------------------------- */
+let _uid = 0;
+function uid(){ return 'c' + (_uid++); }
+function shuffle(arr){
+  for(let i=arr.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [arr[i],arr[j]] = [arr[j],arr[i]];
+  }
+  return arr;
+}
+function randInt(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
+function pct(v,max){ return Math.max(0,Math.min(100, (v/max)*100)); }
+const reducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ---------------------------- CARD DATABASE ----------------------------- */
+const CARD_DB = {
+  quick_strike:  { name:'Quick Strike',  type:'attack', cost:3, value:7,
+    desc:c=>`Deal ${c.value} damage.`, upgrade:{value:11} },
+  heavy_slash:   { name:'Heavy Slash',   type:'attack', cost:7, value:16,
+    desc:c=>`Deal ${c.value} damage.`, upgrade:{value:22} },
+  shatter:       { name:'Shatter',       type:'attack', cost:5, value:8,
+    desc:c=>`Deal ${c.value} damage. Combo: if the enemy is Frozen, shatter it for +14 damage and refund 6s.`, upgrade:{value:12} },
+  freeze:        { name:'Freeze',        type:'status', cost:4, value:3,
+    desc:c=>`Deal ${c.value} damage and Freeze the enemy, halving their next attack.`, upgrade:{cost:3} },
+  poison_dart:   { name:'Poison Dart',   type:'status', cost:4, value:4, poison:3,
+    desc:c=>`Deal ${c.value} damage. Apply ${c.poison} Poison.`, upgrade:{poison:5} },
+  overclock:     { name:'Overclock',     type:'status', cost:3, value:0,
+    desc:()=>`Haste: your next card costs 4s less this turn.`, upgrade:{cost:1} },
+  guard_up:      { name:'Guard Up',      type:'defend', cost:4, value:8,
+    desc:c=>`Gain ${c.value} Block.`, upgrade:{value:12} },
+  bulwark:       { name:'Bulwark',       type:'defend', cost:8, value:18,
+    desc:c=>`Gain ${c.value} Block.`, upgrade:{value:24} },
+  chrono_siphon: { name:'Chrono Siphon', type:'time', cost:2, value:2, refund:5,
+    desc:c=>`Deal ${c.value} damage. Refund ${c.refund}s to your clock.`, upgrade:{refund:7} },
+  rewind:        { name:'Rewind',        type:'time', cost:0, value:0, refund:4,
+    desc:c=>`Refund ${c.refund}s to your clock. Free to play.`, upgrade:{refund:6} },
+};
+const TYPE_ICON = { attack:'\u2694', defend:'\u{1F6E1}', status:'\u2620', time:'\u23F3' };
+
+function getCard(instance){
+  const base = CARD_DB[instance.id];
+  const eff = instance.upgraded ? Object.assign({}, base, base.upgrade||{}) : Object.assign({}, base);
+  eff.id = instance.id; eff.uid = instance.uid; eff.upgraded = instance.upgraded;
+  eff.desc = base.desc(eff);
+  return eff;
+}
+function newCard(id, upgraded){ return { uid: uid(), id, upgraded: !!upgraded }; }
+
+/* ---------------------------- ENEMY DATABASE ---------------------------- */
+const ENEMY_DB = {
+  rust_automaton: { name:'Rust Automaton', floor:1, hp:38, boss:false,
+    pattern:[{type:'attack',value:8},{type:'attack',value:8},{type:'defend',value:7}] },
+  glitch_sprite:  { name:'Glitch Sprite',  floor:1, hp:26, boss:false,
+    pattern:[{type:'attack',value:5},{type:'attack',value:5},{type:'attack',value:13}] },
+  temporal_hound: { name:'Temporal Hound', floor:2, hp:54, boss:false,
+    pattern:[{type:'attack',value:10},{type:'attack',value:6},{type:'attack',value:6},{type:'defend',value:9}] },
+  paradox_knight: { name:'Paradox Knight', floor:2, hp:66, boss:false,
+    pattern:[{type:'defend',value:12},{type:'attack',value:18}] },
+  the_chronarch:  { name:'The Chronarch',  floor:3, hp:112, boss:true,
+    pattern:[{type:'attack',value:14},{type:'attack',value:14},{type:'defend',value:13},{type:'attack',value:24}] },
+};
+function pickEnemy(floorNum, isBoss){
+  const pool = Object.entries(ENEMY_DB).filter(([k,v])=> v.floor===floorNum && !!v.boss===!!isBoss);
+  const [id, def] = pool[randInt(0,pool.length-1)];
+  return { id, name:def.name, hp:def.hp, maxHp:def.hp, boss:def.boss,
+    pattern: def.pattern.map(p=>Object.assign({},p)) };
+}
+
+/* ---------------------------- EVENT DATABASE ----------------------------- */
+const EVENT_DB = [
+  { title:'A Fractured Hourglass', text:'You find an hourglass leaking silver sand that flows upward. Something about it feels reversible.',
+    choices:[
+      { label:'Pocket it — add a Rewind card', effect:p=>{ p.deck.push(newCard('rewind')); return 'You feel time bend slightly in your favor.'; } },
+      { label:'Leave it — gain 20 gold', effect:p=>{ p.gold+=20; return 'You pry loose a few stray cogs worth 20 gold.'; } },
+    ]},
+  { title:'The Clockmaker\u2019s Toll', text:'A cloaked figure offers to sharpen your instincts, for a price paid in memory.',
+    choices:[
+      { label:'Pay 10 HP to upgrade a random card', effect:p=>{ p.hp=Math.max(1,p.hp-10); const c=p.deck.filter(x=>!x.upgraded); if(c.length){ c[randInt(0,c.length-1)].upgraded=true; return 'A card in your deck feels sharper.'; } return 'You had nothing left to sharpen.'; } },
+      { label:'Refuse', effect:()=> 'You walk away, unchanged.' },
+    ]},
+  { title:'Echo in the Rift', text:'A faint echo of yourself offers a trade: strength now for stability later.',
+    choices:[
+      { label:'Trade 15 gold for 15 HP', effect:p=>{ if(p.gold>=15){ p.gold-=15; p.hp=Math.min(p.maxHp,p.hp+15); return 'The echo hands back some lost vitality.'; } return 'You don\u2019t have enough gold.'; } },
+      { label:'Walk past', effect:()=> 'The echo fades without a word.' },
+    ]},
+  { title:'A Rusted Cache', text:'Behind a jammed gear-door, you spot a small stash.',
+    choices:[
+      { label:'Force it open — gain 30 gold, lose 5 HP', effect:p=>{ p.gold+=30; p.hp=Math.max(1,p.hp-5); return 'The door gives way, spilling gold and rust.'; } },
+      { label:'Leave it be', effect:()=> 'Some doors are better left shut.' },
+    ]},
+  { title:'Temporal Merchant', text:'A merchant who exists in three timelines at once offers a card, paid in seconds of your life.',
+    choices:[
+      { label:'Accept — add a random status card, lose 8 HP', effect:p=>{ p.hp=Math.max(1,p.hp-8); const ids=['freeze','poison_dart','overclock']; p.deck.push(newCard(ids[randInt(0,ids.length-1)])); return 'A new card settles into your deck.'; } },
+      { label:'Decline', effect:()=> 'The merchant blinks out of existence.' },
+    ]},
+];
+
+/* ---------------------------- AUDIO (Web Audio API) ---------------------------- */
+let actx=null, masterGain=null, muted=false;
+function ensureAudio(){
+  if(!actx){
+    actx = new (window.AudioContext||window.webkitAudioContext)();
+    masterGain = actx.createGain(); masterGain.gain.value=0.5;
+    masterGain.connect(actx.destination);
+  }
+  if(actx.state==='suspended') actx.resume();
+}
+function tone(freq,dur,opts){
+  opts = opts||{};
+  if(muted) return;
+  ensureAudio();
+  const type=opts.type||'sine', vol=opts.vol!=null?opts.vol:0.3, glide=opts.glide||0, delay=opts.delay||0, detune=opts.detune||0;
+  const t0=actx.currentTime+delay;
+  const osc=actx.createOscillator(); osc.type=type; osc.frequency.setValueAtTime(Math.max(20,freq),t0);
+  if(glide) osc.frequency.exponentialRampToValueAtTime(Math.max(20,freq+glide), t0+dur);
+  osc.detune.value=detune;
+  const g=actx.createGain();
+  g.gain.setValueAtTime(0.0001,t0);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.001,vol),t0+0.01);
+  g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+  osc.connect(g); g.connect(masterGain); osc.start(t0); osc.stop(t0+dur+0.03);
+}
+function noiseBurst(dur,opts){
+  opts=opts||{};
+  if(muted) return;
+  ensureAudio();
+  const filterFreq=opts.filterFreq||1500, vol=opts.vol!=null?opts.vol:0.25, delay=opts.delay||0, ftype=opts.type||'bandpass';
+  const t0=actx.currentTime+delay;
+  const bufferSize=Math.max(1,Math.floor(actx.sampleRate*dur));
+  const buffer=actx.createBuffer(1,bufferSize,actx.sampleRate);
+  const data=buffer.getChannelData(0);
+  for(let i=0;i<bufferSize;i++) data[i]=(Math.random()*2-1)*(1-i/bufferSize);
+  const src=actx.createBufferSource(); src.buffer=buffer;
+  const filter=actx.createBiquadFilter(); filter.type=ftype; filter.frequency.value=filterFreq;
+  const g=actx.createGain(); g.gain.setValueAtTime(vol,t0); g.gain.exponentialRampToValueAtTime(0.001,t0+dur);
+  src.connect(filter); filter.connect(g); g.connect(masterGain); src.start(t0);
+}
+const sfx = {
+  cardPlay: ()=> noiseBurst(0.15,{filterFreq:2200,vol:0.16}),
+  attackHit: ()=> { tone(120,0.16,{type:'square',vol:0.28,glide:-60}); noiseBurst(0.08,{filterFreq:800,vol:0.18}); },
+  block: ()=> { tone(520,0.09,{type:'triangle',vol:0.22}); tone(720,0.09,{type:'triangle',vol:0.14,delay:0.04}); },
+  freeze: ()=> { tone(1300,0.32,{type:'sine',vol:0.18,glide:-450}); tone(1900,0.26,{type:'sine',vol:0.09,delay:0.05,glide:-350}); },
+  poison: ()=> { tone(320,0.22,{type:'sawtooth',vol:0.14,glide:-110}); },
+  refund: ()=> { [0,0.06,0.12].forEach((d,i)=> tone(500+i*220,0.13,{type:'sine',vol:0.18,delay:d})); },
+  combo: ()=> { noiseBurst(0.2,{filterFreq:3200,vol:0.22}); tone(1650,0.25,{type:'triangle',vol:0.2,delay:0.02}); },
+  enemyAttack: (small)=> tone(small?220:100,0.2,{type:'sawtooth',vol:small?0.14:0.28,glide:-40}),
+  button: ()=> tone(700,0.06,{type:'square',vol:0.1}),
+  nav: ()=> tone(440,0.08,{type:'sine',vol:0.14}),
+  victory: ()=> [523,659,784].forEach((f,i)=> tone(f,0.28,{type:'triangle',vol:0.22,delay:i*0.13})),
+  defeat: ()=> tone(180,0.65,{type:'sawtooth',vol:0.22,glide:-120}),
+};
+function toggleMute(){ muted=!muted; if(!muted) ensureAudio(); const b=document.getElementById('mute-btn'); if(b) b.textContent = muted? '\u{1F507}' : '\u{1F50A}'; }
+
+/* ---------------------------- AMBIENT BACKGROUND CANVAS ---------------------------- */
+const bgCanvas = document.getElementById('bg-canvas');
+const bgCtx = bgCanvas.getContext('2d');
+let motes=[];
+function resizeBg(){
+  const dpr = Math.min(2, window.devicePixelRatio||1);
+  bgCanvas.width = window.innerWidth*dpr; bgCanvas.height = window.innerHeight*dpr;
+  bgCtx.setTransform(dpr,0,0,dpr,0,0);
+}
+window.addEventListener('resize', resizeBg);
+resizeBg();
+for(let i=0;i<60;i++){
+  motes.push({ x:Math.random()*window.innerWidth, y:Math.random()*window.innerHeight,
+    r:0.6+Math.random()*1.8, vy:-(0.06+Math.random()*0.18), vx:(Math.random()-0.5)*0.08,
+    hue: Math.random()<0.5?'79,209,217':'201,162,39', a:0.15+Math.random()*0.35 });
+}
+let gearAngle=0;
+function drawGear(cx,cy,r,teeth,angle,color,alpha){
+  bgCtx.save(); bgCtx.translate(cx,cy); bgCtx.rotate(angle); bgCtx.globalAlpha=alpha; bgCtx.strokeStyle=color; bgCtx.lineWidth=1.4;
+  bgCtx.beginPath();
+  for(let i=0;i<=teeth;i++){
+    const a1=(i/teeth)*Math.PI*2, a2=a1+(Math.PI/teeth)*0.6;
+    const r1=r, r2=r*1.12;
+    bgCtx.lineTo(Math.cos(a1)*r1, Math.sin(a1)*r1);
+    bgCtx.lineTo(Math.cos(a2)*r2, Math.sin(a2)*r2);
+  }
+  bgCtx.closePath(); bgCtx.stroke();
+  bgCtx.beginPath(); bgCtx.arc(0,0,r*0.6,0,Math.PI*2); bgCtx.stroke();
+  bgCtx.restore();
+}
+function ambientFrame(){
+  const w=window.innerWidth, h=window.innerHeight;
+  bgCtx.clearRect(0,0,w,h);
+  const grad = bgCtx.createRadialGradient(w*0.5,h*0.42,0,w*0.5,h*0.42,Math.max(w,h)*0.75);
+  grad.addColorStop(0,'#101830'); grad.addColorStop(1,'#080A12');
+  bgCtx.fillStyle=grad; bgCtx.fillRect(0,0,w,h);
+  gearAngle += reducedMotion? 0 : 0.0016;
+  drawGear(w*0.86, h*0.18, 90, 14, gearAngle, 'rgba(201,162,39,0.10)', 1);
+  drawGear(w*0.08, h*0.82, 130, 18, -gearAngle*0.7, 'rgba(79,209,217,0.08)', 1);
+  for(const m of motes){
+    if(!reducedMotion){ m.y+=m.vy; m.x+=m.vx; if(m.y<-10) m.y=h+10; if(m.x<-10) m.x=w+10; if(m.x>w+10) m.x=-10; }
+    bgCtx.beginPath(); bgCtx.fillStyle=`rgba(${m.hue},${m.a})`; bgCtx.arc(m.x,m.y,m.r,0,Math.PI*2); bgCtx.fill();
+  }
+  requestAnimationFrame(ambientFrame);
+}
+requestAnimationFrame(ambientFrame);
+
+/* ---------------------------- TOAST / FLOATIES ---------------------------- */
+function toast(msg){
+  const el=document.createElement('div'); el.className='toast'; el.textContent=msg;
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),2100);
+}
+function floatText(targetEl,text,color){
+  if(!targetEl) return;
+  const r=targetEl.getBoundingClientRect();
+  const el=document.createElement('div'); el.className='floatie'; el.textContent=text; el.style.color=color;
+  el.style.left=(r.left+r.width/2)+'px'; el.style.top=(r.top+r.height*0.3)+'px';
+  document.body.appendChild(el);
+  setTimeout(()=>el.remove(),1050);
+}
+function shakeStage(){
+  const s=document.getElementById('battle-stage');
+  if(!s || reducedMotion) return;
+  s.classList.remove('shake'); void s.offsetWidth; s.classList.add('shake');
+}
+
+/* ---------------------------- GAME STATE ---------------------------- */
+const state = {
+  screen:'title',
+  floor:1,
+  map:null,
+  currentNodeId:null,
+  availableNodeIds:[],
+  pendingNode:null,
+  player:null,
+  battle:null,
+  shop:null,
+  event:null,
+  rest:null,
+  reward:null,
+};
+
+function makeStartingDeck(){
+  const ids=['quick_strike','quick_strike','guard_up','guard_up','heavy_slash','shatter','freeze','poison_dart','chrono_siphon','rewind','overclock'];
+  return ids.map(id=>newCard(id));
+}
+function newRun(){
+  state.floor=1;
+  state.player={ hp:70, maxHp:70, gold:45, deck:makeStartingDeck() };
+  state.map=generateFloor(1);
+  state.currentNodeId=null;
+  state.availableNodeIds = state.map[0].map(n=>n.id);
+  goto('map');
+}
+
+/* ---------------------------- MAP GENERATION ---------------------------- */
+function pickWeightedType(){
+  const r=Math.random();
+  if(r<0.5) return 'battle';
+  if(r<0.68) return 'shop';
+  if(r<0.86) return 'event';
+  return 'rest';
+}
+function generateFloor(floorNum){
+  const layerCount=5;
+  const layers=[];
+  for(let L=0; L<layerCount; L++){
+    let nodeCount, forcedType=null;
+    if(L===0){ nodeCount=1; forcedType='battle'; }
+    else if(L===layerCount-1){ nodeCount=1; forcedType = floorNum===3 ? 'boss' : 'rest'; }
+    else nodeCount = randInt(2,3);
+    const nodes=[];
+    for(let i=0;i<nodeCount;i++){
+      nodes.push({ id:`f${floorNum}l${L}n${i}`, floor:floorNum, layer:L, index:i,
+        type: forcedType || pickWeightedType(), connections:[], visited:false });
+    }
+    layers.push(nodes);
+  }
+  for(let L=0; L<layerCount-1; L++){
+    const cur=layers[L], next=layers[L+1];
+    const incoming = new Set();
+    cur.forEach((node, ci)=>{
+      const ratio = next.length/cur.length;
+      const base = Math.min(next.length-1, Math.floor(ci*ratio));
+      const targets = new Set([base]);
+      if(Math.random()<0.5 && base+1<next.length) targets.add(base+1);
+      targets.forEach(ti=>{ node.connections.push(next[ti].id); incoming.add(ti); });
+    });
+    next.forEach((node, ni)=>{
+      if(!incoming.has(ni)){
+        const from = cur[randInt(0,cur.length-1)];
+        from.connections.push(node.id);
+      }
+    });
+  }
+  return layers;
+}
+function findNode(id){
+  for(const layer of state.map) for(const n of layer) if(n.id===id) return n;
+  return null;
+}
+function advanceFromNode(node){
+  if(node.connections.length===0){
+    if(state.floor<3){
+      state.floor++;
+      state.map=generateFloor(state.floor);
+      state.currentNodeId=null;
+      state.availableNodeIds = state.map[0].map(n=>n.id);
+    }
+  } else {
+    state.availableNodeIds = node.connections.slice();
+  }
+}
+
+/* ---------------------------- SCREEN ROUTER ---------------------------- */
+let particleLoopToken=0;
+function goto(screen){
+  if(state.screen==='battle' && screen!=='battle'){ particleLoopToken++; }
+  state.screen=screen;
+  renderScreen();
+}
+function renderScreen(){
+  switch(state.screen){
+    case 'title': renderTitle(); break;
+    case 'map': renderMap(); break;
+    case 'battle': buildBattleScreen(); break;
+    case 'shop': renderShop(); break;
+    case 'event': renderEvent(); break;
+    case 'rest': renderRest(); break;
+    case 'reward': renderReward(); break;
+    case 'gameover': renderGameOver(); break;
+    case 'victory': renderVictory(); break;
+  }
+}
+
+/* ---------------------------- MODAL ---------------------------- */
+function openModal(html){ document.getElementById('modal-root').innerHTML =
+  `<div class="modal-backdrop" onclick="closeModal()"><div class="modal-box" onclick="event.stopPropagation()">${html}</div></div>`; }
+function closeModal(){ document.getElementById('modal-root').innerHTML=''; }
+function openHelp(){
+  openModal(`<h3>How Chrono-Tactics works</h3><div class="help-text">
+    <p><b>The Clock, not Mana.</b> Each turn you have a 30-second budget. Cards cost seconds instead of mana.</p>
+    <p><b>Reckless spending is punished.</b> Every time your total spending this turn crosses a multiple of 5 seconds, a rift surge strikes you immediately, even mid-turn.</p>
+    <p><b>Combos.</b> Freeze the enemy, then play Shatter for bonus damage and a time refund. Overclock grants Haste, discounting your very next card.</p>
+    <p><b>The Map.</b> ${TYPE_ICON.attack} Battle &nbsp; \u2699 Shop &nbsp; \u2726 Event &nbsp; \u23F3 Rest &nbsp; \u2620 Boss. Pick a lit node to travel there.</p>
+    <p>Survive three floors and defeat The Chronarch to win the run.</p>
+  </div><div class="btn-row" style="margin-top:16px;justify-content:flex-end;"><button class="btn btn-primary" onclick="closeModal()">Got it</button></div>`);
+}
+
+/* ---------------------------- TITLE SCREEN ---------------------------- */
+function renderTitle(){
+  const app=document.getElementById('app');
+  app.innerHTML = `
+  <div id="title-screen" class="screen">
+    <div class="dial-deco">
+      <svg width="86" height="86" viewBox="0 0 100 100">
+        <circle cx="50" cy="50" r="44" fill="none" stroke="var(--brass)" stroke-width="2" opacity="0.7"/>
+        <circle cx="50" cy="50" r="3" fill="var(--cyan)"/>
+        <line x1="50" y1="50" x2="50" y2="16" stroke="var(--cyan)" stroke-width="2"/>
+        <line x1="50" y1="50" x2="72" y2="58" stroke="var(--brass)" stroke-width="2"/>
+      </svg>
+    </div>
+    <div class="game-logo title-display">CHRONO<span class="accent">-</span>TACTICS</div>
+    <div class="game-tag">A turn-based card battler where every play spends seconds, not mana. Spend fast and the rift strikes back. Spend wisely, chain a Freeze into a Shatter, and bend the clock in your favor.</div>
+    <div class="btn-row" style="justify-content:center;">
+      <button class="btn btn-primary" onclick="sfx.button(); newRun();">Begin Run</button>
+      <button class="btn btn-ghost" onclick="sfx.button(); openHelp();">How to Play</button>
+      <button class="icon-btn" id="mute-btn" onclick="toggleMute();" title="Toggle sound">${muted?'\u{1F507}':'\u{1F50A}'}</button>
+    </div>
+  </div>`;
+}
+
+/* ---------------------------- MAP SCREEN ---------------------------- */
+function renderMap(){
+  const app=document.getElementById('app');
+  app.innerHTML = `
+  <div id="map-screen" class="screen">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="stat-chip"><span class="lbl">FLOOR</span> ${state.floor} / 3</div>
+        <div class="stat-chip"><span class="lbl">HP</span> ${state.player.hp}/${state.player.maxHp}</div>
+        <div class="stat-chip"><span class="lbl">GOLD</span> ${state.player.gold}</div>
+      </div>
+      <div class="topbar-right">
+        <button class="btn btn-ghost" onclick="sfx.button(); openDeckViewer();">View Deck (${state.player.deck.length})</button>
+        <button class="btn btn-ghost" onclick="sfx.button(); openHelp();">Help</button>
+        <button class="icon-btn" id="mute-btn" onclick="toggleMute();">${muted?'\u{1F507}':'\u{1F50A}'}</button>
+      </div>
+    </div>
+    <div class="map-wrap"><canvas id="map-canvas"></canvas><div id="map-nodes"></div></div>
+    <div class="map-legend">
+      <span>${TYPE_ICON.attack} Battle</span><span>\u2699 Shop</span><span>\u2726 Event</span><span>\u23F3 Rest</span><span>\u2620 Boss</span>
+    </div>
+  </div>`;
+  drawMapAndNodes();
+  window.addEventListener('resize', drawMapAndNodes, {once:true});
+}
+function nodeIcon(type){ return type==='battle'?TYPE_ICON.attack : type==='shop'?'\u2699' : type==='event'?'\u2726' : type==='rest'?'\u23F3' : '\u2620'; }
+function drawMapAndNodes(){
+  const wrap=document.querySelector('.map-wrap'); if(!wrap) return;
+  const canvas=document.getElementById('map-canvas'); const nodesLayer=document.getElementById('map-nodes');
+  const rect=wrap.getBoundingClientRect();
+  const dpr=Math.min(2,window.devicePixelRatio||1);
+  canvas.width=rect.width*dpr; canvas.height=rect.height*dpr;
+  const ctx=canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  const layerCount=state.map.length;
+  const padX=60, padY=50;
+  const usableW=Math.max(200,rect.width-padX*2), usableH=Math.max(160,rect.height-padY*2);
+  const positions={};
+  state.map.forEach((layer,L)=>{
+    const x = padX + (layerCount<=1?0:(usableW*(L/(layerCount-1))));
+    layer.forEach((node,i)=>{
+      const y = padY + (layer.length<=1 ? usableH/2 : usableH*(i/(layer.length-1)));
+      positions[node.id] = {x,y};
+    });
+  });
+  ctx.clearRect(0,0,rect.width,rect.height);
+  ctx.lineWidth=1.6;
+  state.map.forEach(layer=> layer.forEach(node=>{
+    node.connections.forEach(cid=>{
+      const a=positions[node.id], b=positions[cid];
+      const isLit = state.availableNodeIds.includes(node.id) || node.visited;
+      ctx.strokeStyle = isLit? 'rgba(201,162,39,0.55)':'rgba(136,145,168,0.25)';
+      ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+    });
+  }));
+  nodesLayer.innerHTML='';
+  state.map.forEach(layer=> layer.forEach(node=>{
+    const p=positions[node.id];
+    const isAvailable = state.availableNodeIds.includes(node.id);
+    const isCurrent = state.currentNodeId===node.id;
+    const btn=document.createElement('button');
+    btn.className='map-node-btn'+(isAvailable?' available':'')+(node.visited?' visited':'')+(isCurrent?' current':'')+(!isAvailable&&!node.visited?' locked':'');
+    btn.style.left=p.x+'px'; btn.style.top=p.y+'px';
+    btn.textContent = nodeIcon(node.type);
+    btn.title = node.type;
+    if(isAvailable) btn.onclick=()=>selectNode(node.id);
+    nodesLayer.appendChild(btn);
+  }));
+}
+function openDeckViewer(){
+  const cards = state.player.deck.map(inst=>{
+    const cd=getCard(inst);
+    return `<div class="card ${cd.type}${cd.upgraded?' upgraded':''} deck-item"><div class="card-cost">${cd.cost}</div>
+      <div class="card-name">${cd.name}</div><div class="card-type-tag">${cd.type}</div><div class="card-desc">${cd.desc}</div></div>`;
+  }).join('');
+  openModal(`<h3>Your Deck (${state.player.deck.length} cards)</h3><div class="deck-list">${cards}</div>
+    <div class="btn-row" style="margin-top:16px;justify-content:flex-end;"><button class="btn btn-primary" onclick="closeModal()">Close</button></div>`);
+}
+
+function selectNode(nodeId){
+  if(!state.availableNodeIds.includes(nodeId)) return;
+  const node=findNode(nodeId);
+  node.visited=true;
+  state.currentNodeId=nodeId;
+  state.pendingNode=node;
+  sfx.nav();
+  if(node.type==='battle' || node.type==='boss'){ startBattle(node); }
+  else if(node.type==='shop'){ openShop(); }
+  else if(node.type==='event'){ openEvent(); }
+  else if(node.type==='rest'){ openRest(); }
+}
+
+/* ---------------------------- SHOP ---------------------------- */
+function shopPrice(id){ const d=CARD_DB[id]; return 22 + d.cost*7 + (d.value||0)*2 + (d.refund||0)*2; }
+function randomCardIds(n){
+  const pool=Object.keys(CARD_DB); const res=[];
+  for(let i=0;i<n && pool.length;i++){ res.push(pool.splice(randInt(0,pool.length-1),1)[0]); }
+  return res;
+}
+function openShop(){
+  state.shop = { offers: randomCardIds(3).map(id=>({id, price:shopPrice(id), bought:false})), removePrice:50, upgradePrice:45 };
+  goto('shop');
+}
+function renderShop(){
+  const app=document.getElementById('app');
+  const offersHtml = state.shop.offers.map((o,i)=>{
+    const eff = getCard({id:o.id, upgraded:false});
+    return `<div class="offer-card">
+      <div class="card ${eff.type}"><div class="card-cost">${eff.cost}</div><div class="card-name">${eff.name}</div>
+      <div class="card-type-tag">${eff.type}</div><div class="card-desc">${eff.desc}</div></div>
+      <div class="offer-price">${o.bought? 'Sold' : o.price+' gold'}</div>
+      <button class="btn btn-ghost" style="margin-top:6px;width:100%;" ${o.bought||state.player.gold<o.price?'disabled':''} onclick="buyOffer(${i})">Buy</button>
+    </div>`;
+  }).join('');
+  app.innerHTML = `
+  <div class="screen panel-screen">
+    <div class="panel-box" style="max-width:760px;">
+      <div class="panel-title title-display">The Clockmaker's Shop</div>
+      <div class="panel-text">Gold: <b style="color:var(--brass)">${state.player.gold}</b></div>
+      <div class="offer-grid">${offersHtml}</div>
+      <div class="service-row">
+        <button class="btn" ${state.player.gold<state.shop.removePrice||state.player.deck.length<=3?'disabled':''} onclick="sfx.button(); openRemovePicker();">Remove a card \u2014 ${state.shop.removePrice}g</button>
+        <button class="btn" ${state.player.gold<state.shop.upgradePrice?'disabled':''} onclick="sfx.button(); openUpgradePicker();">Upgrade a card \u2014 ${state.shop.upgradePrice}g</button>
+      </div>
+      <div class="btn-row" style="justify-content:center;margin-top:22px;">
+        <button class="btn btn-primary" onclick="sfx.button(); leaveNode();">Leave Shop</button>
+      </div>
+    </div>
+  </div>`;
+}
+function buyOffer(i){
+  const o=state.shop.offers[i];
+  if(o.bought || state.player.gold<o.price) return;
+  state.player.gold-=o.price; o.bought=true;
+  state.player.deck.push(newCard(o.id));
+  sfx.combo();
+  renderShop();
+}
+function openRemovePicker(){
+  const items = state.player.deck.map((inst,i)=>{
+    const cd=getCard(inst);
+    return `<div class="deck-item"><div class="card ${cd.type}${cd.upgraded?' upgraded':''}"><div class="card-cost">${cd.cost}</div>
+      <div class="card-name">${cd.name}</div><div class="card-type-tag">${cd.type}</div><div class="card-desc">${cd.desc}</div></div>
+      <button class="btn btn-danger" style="width:100%;margin-top:6px;" onclick="removeCard(${i})">Remove</button></div>`;
+  }).join('');
+  openModal(`<h3>Remove a card \u2014 ${state.shop.removePrice}g</h3><div class="deck-list">${items}</div>`);
+}
+function removeCard(i){
+  if(state.player.gold<state.shop.removePrice) return;
+  state.player.gold-=state.shop.removePrice;
+  state.player.deck.splice(i,1);
+  sfx.combo(); closeModal(); renderShop();
+}
+function openUpgradePicker(){
+  const items = state.player.deck.map((inst,i)=>{
+    const cd=getCard(inst);
+    return `<div class="deck-item"><div class="card ${cd.type}${cd.upgraded?' upgraded':''}"><div class="card-cost">${cd.cost}</div>
+      <div class="card-name">${cd.name}</div><div class="card-type-tag">${cd.type}</div><div class="card-desc">${cd.desc}</div></div>
+      <button class="btn" style="width:100%;margin-top:6px;" ${inst.upgraded?'disabled':''} onclick="upgradeCard(${i})">${inst.upgraded?'Already upgraded':'Upgrade'}</button></div>`;
+  }).join('');
+  openModal(`<h3>Upgrade a card \u2014 ${state.shop.upgradePrice}g</h3><div class="deck-list">${items}</div>`);
+}
+function upgradeCard(i){
+  if(state.player.gold<state.shop.upgradePrice) return;
+  const inst=state.player.deck[i];
+  if(inst.upgraded) return;
+  state.player.gold-=state.shop.upgradePrice; inst.upgraded=true;
+  sfx.combo(); closeModal(); renderShop();
+}
+function leaveNode(){
+  const node=state.pendingNode;
+  advanceFromNode(node);
+  goto('map');
+}
+
+/* ---------------------------- EVENT ---------------------------- */
+function openEvent(){
+  const ev = EVENT_DB[randInt(0,EVENT_DB.length-1)];
+  state.event = { def:ev, resolvedText:null };
+  goto('event');
+}
+function renderEvent(){
+  const app=document.getElementById('app');
+  const ev=state.event;
+  const choicesHtml = ev.resolvedText===null ? ev.def.choices.map((c,i)=>
+    `<button class="btn" onclick="resolveEventChoice(${i})">${c.label}</button>`).join('') : '';
+  app.innerHTML = `
+  <div class="screen panel-screen">
+    <div class="panel-box">
+      <div class="panel-title title-display">${ev.def.title}</div>
+      <div class="panel-text">${ev.resolvedText===null? ev.def.text : ev.resolvedText}</div>
+      <div class="btn-row" style="justify-content:center;">${choicesHtml}</div>
+      ${ev.resolvedText!==null ? `<div class="btn-row" style="justify-content:center;margin-top:18px;"><button class="btn btn-primary" onclick="sfx.button(); leaveNode();">Continue</button></div>` : ''}
+    </div>
+  </div>`;
+}
+function resolveEventChoice(i){
+  const ev=state.event;
+  const result = ev.def.choices[i].effect(state.player);
+  ev.resolvedText = result;
+  sfx.nav();
+  renderEvent();
+}
+
+/* ---------------------------- REST ---------------------------- */
+function openRest(){ state.rest = { resolvedText:null }; goto('rest'); }
+function renderRest(){
+  const app=document.getElementById('app');
+  const r=state.rest;
+  app.innerHTML = `
+  <div class="screen panel-screen">
+    <div class="panel-box">
+      <div class="panel-title title-display">Rift Sanctuary</div>
+      <div class="panel-text">${r.resolvedText===null? 'A pocket of stilled time. Rest your body, or meditate on your deck.' : r.resolvedText}</div>
+      ${r.resolvedText===null ? `<div class="btn-row" style="justify-content:center;">
+          <button class="btn btn-primary" onclick="restHeal()">Rest \u2014 heal 30% max HP</button>
+          <button class="btn" onclick="sfx.button(); openMeditatePicker();">Meditate \u2014 upgrade a card</button>
+        </div>` : `<div class="btn-row" style="justify-content:center;margin-top:8px;"><button class="btn btn-primary" onclick="sfx.button(); leaveNode();">Continue</button></div>`}
+    </div>
+  </div>`;
+}
+function restHeal(){
+  const heal=Math.round(state.player.maxHp*0.3);
+  state.player.hp=Math.min(state.player.maxHp, state.player.hp+heal);
+  sfx.refund();
+  state.rest.resolvedText = `You rest a while. Recovered ${heal} HP.`;
+  renderRest();
+}
+function openMeditatePicker(){
+  const eligible = state.player.deck.filter(c=>!c.upgraded);
+  if(eligible.length===0){ toast('Every card is already upgraded.'); return; }
+  const items = state.player.deck.map((inst,i)=>{
+    const cd=getCard(inst);
+    return `<div class="deck-item"><div class="card ${cd.type}${cd.upgraded?' upgraded':''}"><div class="card-cost">${cd.cost}</div>
+      <div class="card-name">${cd.name}</div><div class="card-type-tag">${cd.type}</div><div class="card-desc">${cd.desc}</div></div>
+      <button class="btn" style="width:100%;margin-top:6px;" ${inst.upgraded?'disabled':''} onclick="meditateUpgrade(${i})">${inst.upgraded?'Already upgraded':'Upgrade'}</button></div>`;
+  }).join('');
+  openModal(`<h3>Choose a card to upgrade</h3><div class="deck-list">${items}</div>`);
+}
+function meditateUpgrade(i){
+  const inst=state.player.deck[i];
+  if(inst.upgraded) return;
+  inst.upgraded=true;
+  closeModal(); sfx.combo();
+  state.rest.resolvedText = `You meditate on ${CARD_DB[inst.id].name}. It feels sharper now.`;
+  renderRest();
+}
+
+/* ---------------------------- BATTLE ---------------------------- */
+function startBattle(node){
+  const isBoss = node.type==='boss';
+  const enemy = pickEnemy(state.floor, isBoss);
+  state.battle = {
+    node, isBoss,
+    enemy: Object.assign(enemy, {block:0, frozen:0, poison:0, patternIndex:0}),
+    drawPile: shuffle(state.player.deck.map(c=>newCard(c.id, c.upgraded))),
+    hand:[], discard:[],
+    playerBlock:0, haste:false,
+    clock:30, spentAccum:0, nextThreshold:5, triggeredCount:0,
+    over:false,
+  };
+  goto('battle');
+}
+let battleParticles=[];
+function buildBattleScreen(){
+  const app=document.getElementById('app');
+  const b=state.battle;
+  app.innerHTML = `
+  <div id="battle-screen" class="screen">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="stat-chip"><span class="lbl">FLOOR</span> ${state.floor} / 3</div>
+        <div class="stat-chip"><span class="lbl">GOLD</span> ${state.player.gold}</div>
+      </div>
+      <div class="topbar-right"><button class="icon-btn" id="mute-btn" onclick="toggleMute();">${muted?'\u{1F507}':'\u{1F50A}'}</button></div>
+    </div>
+
+    <div class="combatant-panel enemy">
+      <div class="combatant-info" style="text-align:right;">
+        <div class="combatant-name" style="justify-content:flex-end;" id="enemy-name">${b.enemy.name}${b.isBoss?' \u2620':''}</div>
+        <div class="hp-bar-track"><div class="hp-bar-fill" id="enemy-hp-fill"></div><div class="hp-bar-text" id="enemy-hp-text"></div></div>
+        <div class="badge-row" id="enemy-badges" style="justify-content:flex-end;"></div>
+      </div>
+    </div>
+
+    <div class="stage" id="battle-stage">
+      <canvas id="battle-fx"></canvas>
+      <div class="avatar-wrap">
+        <svg id="player-avatar" width="88" height="88" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="46" fill="none" stroke="var(--cyan)" stroke-width="2" opacity="0.5"/>
+          <path d="M35 20 H65 L52 50 L65 80 H35 L48 50 Z" fill="var(--brass)" opacity="0.9"/>
+        </svg>
+        <div class="avatar-label">YOU</div>
+      </div>
+      <div class="avatar-wrap">
+        <svg id="enemy-avatar" width="88" height="88" viewBox="0 0 100 100">
+          <circle cx="50" cy="50" r="46" fill="none" stroke="var(--rust)" stroke-width="2" opacity="0.5"/>
+          <path d="M50 8 L70 35 L92 42 L68 55 L78 90 L50 68 L22 90 L32 55 L8 42 L30 35 Z" fill="var(--rust)" opacity="0.9"/>
+        </svg>
+        <div class="avatar-label">${b.enemy.name.toUpperCase()}</div>
+      </div>
+    </div>
+
+    <div class="combatant-panel player">
+      <div class="combatant-info">
+        <div class="combatant-name" id="player-name">You</div>
+        <div class="hp-bar-track"><div class="hp-bar-fill player-fill" id="player-hp-fill"></div><div class="hp-bar-text" id="player-hp-text"></div></div>
+        <div class="badge-row" id="player-badges"></div>
+      </div>
+    </div>
+
+    <div class="clock-zone">
+      <div class="clock-wrap"><canvas id="clock-canvas" width="118" height="118"></canvas>
+        <div class="clock-digits"><div class="clock-num" id="clock-num">30</div><div class="clock-unit">SECONDS LEFT</div></div>
+      </div>
+      <div class="threshold-note">Every <b>5s</b> spent this turn triggers an immediate rift surge against you.</div>
+    </div>
+
+    <div class="hand-zone">
+      <div class="hand-row" id="hand-row"></div>
+      <div class="hand-controls">
+        <div class="pile-counts"><span>Draw: <span id="draw-count"></span></span><span>Discard: <span id="discard-count"></span></span></div>
+        <button class="btn btn-primary" id="end-turn-btn" onclick="sfx.button(); endTurnBtn();">End Turn</button>
+      </div>
+    </div>
+  </div>`;
+  const fx=document.getElementById('battle-fx');
+  const stage=document.getElementById('battle-stage');
+  const dpr=Math.min(2,window.devicePixelRatio||1);
+  fx.width=stage.clientWidth*dpr; fx.height=stage.clientHeight*dpr;
+  fx.getContext('2d').setTransform(dpr,0,0,dpr,0,0);
+  startParticleLoop(fx, dpr);
+  beginTurn();
+}
+function startParticleLoop(canvas, dpr){
+  const myToken = ++particleLoopToken;
+  const ctx = canvas.getContext('2d');
+  function frame(){
+    if(myToken!==particleLoopToken) return;
+    ctx.clearRect(0,0,canvas.width/dpr,canvas.height/dpr);
+    for(let i=battleParticles.length-1;i>=0;i--){
+      const p=battleParticles[i];
+      p.x+=p.vx; p.y+=p.vy; p.vy+=0.05; p.life++;
+      const t=p.life/p.maxLife;
+      if(t>=1){ battleParticles.splice(i,1); continue; }
+      ctx.globalAlpha=1-t; ctx.fillStyle=p.color;
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.size*(1-t*0.4),0,Math.PI*2); ctx.fill();
+    }
+    ctx.globalAlpha=1;
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+}
+function spawnParticles(kind){
+  const fx=document.getElementById('battle-fx'); const stage=document.getElementById('battle-stage');
+  if(!fx||!stage) return;
+  const stageRect=stage.getBoundingClientRect();
+  const targetEl = (kind==='defend'||kind==='buff') ? document.getElementById('player-avatar') : document.getElementById('enemy-avatar');
+  const r=targetEl.getBoundingClientRect();
+  const x=r.left+r.width/2-stageRect.left, y=r.top+r.height/2-stageRect.top;
+  const colorMap={attack:'#B5482F',defend:'#C9A227',status:'#9B7ED9',time:'#4FD1D9',buff:'#f0d060'};
+  const color=colorMap[kind]||'#EDE6D6';
+  for(let i=0;i<22;i++){
+    const ang=Math.random()*Math.PI*2, speed=1+Math.random()*3;
+    battleParticles.push({x,y,vx:Math.cos(ang)*speed,vy:Math.sin(ang)*speed,life:0,maxLife:26+Math.random()*18,color,size:2+Math.random()*3});
+  }
+}
+function floatEnemyDamage(dmg,blocked){ floatText(document.getElementById('enemy-avatar'), (blocked?'':'-')+dmg, dmg>0?'#ff9d7a':'#8891A8'); }
+function floatPlayerDamage(dmg,blocked){ if(dmg<=0 && blocked){ floatText(document.getElementById('player-avatar'),'Blocked','#C9A227'); return; } floatText(document.getElementById('player-avatar'), '-'+dmg, '#ff6b6b'); }
+
+function drawClock(remaining,max){
+  const canvas=document.getElementById('clock-canvas'); if(!canvas) return;
+  const dpr=Math.min(2,window.devicePixelRatio||1);
+  const size=118;
+  canvas.width=size*dpr; canvas.height=size*dpr;
+  const ctx=canvas.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,size,size);
+  const cx=size/2, cy=size/2, r=size/2-9;
+  ctx.lineWidth=8; ctx.strokeStyle='rgba(255,255,255,0.08)';
+  ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.stroke();
+  for(let i=0;i<=max;i+=5){
+    const a=-Math.PI/2 + (i/max)*Math.PI*2;
+    const x1=cx+Math.cos(a)*(r-9), y1=cy+Math.sin(a)*(r-9);
+    const x2=cx+Math.cos(a)*(r+3), y2=cy+Math.sin(a)*(r+3);
+    ctx.strokeStyle='rgba(237,230,214,0.28)'; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke();
+  }
+  const frac=clamp(remaining/max,0,1);
+  ctx.lineWidth=8; ctx.lineCap='round';
+  if(remaining<=10){ ctx.strokeStyle='#B5482F'; }
+  else { const grad=ctx.createLinearGradient(0,0,size,size); grad.addColorStop(0,'#4FD1D9'); grad.addColorStop(1,'#9B7ED9'); ctx.strokeStyle=grad; }
+  ctx.beginPath(); ctx.arc(cx,cy,r,-Math.PI/2,-Math.PI/2+frac*Math.PI*2); ctx.stroke();
+}
+
+function updateBattleUI(){
+  const b=state.battle; if(!b) return;
+  const p=state.player;
+  const enemyFill=document.getElementById('enemy-hp-fill'); const enemyText=document.getElementById('enemy-hp-text');
+  if(enemyFill){ enemyFill.style.width = pct(Math.max(0,b.enemy.hp), b.enemy.maxHp)+'%'; enemyText.textContent = `${Math.max(0,b.enemy.hp)} / ${b.enemy.maxHp}`; }
+  const playerFill=document.getElementById('player-hp-fill'); const playerText=document.getElementById('player-hp-text');
+  if(playerFill){ playerFill.style.width = pct(Math.max(0,p.hp), p.maxHp)+'%'; playerText.textContent = `${Math.max(0,p.hp)} / ${p.maxHp}`; }
+
+  const enemyBadges=document.getElementById('enemy-badges');
+  if(enemyBadges){
+    let html='';
+    if(b.enemy.block>0) html+=`<span class="badge block">\u{1F6E1} ${b.enemy.block}</span>`;
+    if(b.enemy.frozen>0) html+=`<span class="badge frozen">\u2744 Frozen</span>`;
+    if(b.enemy.poison>0) html+=`<span class="badge poison">\u2620 ${b.enemy.poison}</span>`;
+    const intent=b.enemy.pattern[b.enemy.patternIndex % b.enemy.pattern.length];
+    const intentLabel = intent.type==='attack' ? `\u2694 ${intent.value}` : `\u{1F6E1} ${intent.value}`;
+    html+=`<span class="badge intent">Next: ${intentLabel}</span>`;
+    enemyBadges.innerHTML=html;
+  }
+  const playerBadges=document.getElementById('player-badges');
+  if(playerBadges){
+    let html='';
+    if(b.playerBlock>0) html+=`<span class="badge block">\u{1F6E1} ${b.playerBlock}</span>`;
+    if(b.haste) html+=`<span class="badge haste">\u26A1 Haste</span>`;
+    playerBadges.innerHTML=html;
+  }
+
+  drawClock(Math.max(0,b.clock),30);
+  const clockNum=document.getElementById('clock-num'); if(clockNum) clockNum.textContent=Math.max(0,b.clock);
+
+  const handRow=document.getElementById('hand-row');
+  if(handRow){
+    handRow.innerHTML = b.hand.map((inst,i)=>{
+      const cd=getCard(inst);
+      let cost=cd.cost;
+      const discounted = b.haste && cost>0;
+      if(discounted) cost=Math.max(0,cost-4);
+      const disabled = cost>b.clock || b.over;
+      return `<div class="card ${cd.type}${cd.upgraded?' upgraded':''}${disabled?' disabled':''}" ${disabled?'':`onclick="playCard(${i})"`} tabindex="${disabled?-1:0}" role="button" aria-label="${cd.name}">
+        <div class="card-cost${discounted?' discounted':''}">${cost}</div>
+        <div class="card-name">${cd.name}</div>
+        <div class="card-type-tag">${TYPE_ICON[cd.type]} ${cd.type}</div>
+        <div class="card-desc">${cd.desc}</div>
+      </div>`;
+    }).join('');
+  }
+  const drawCount=document.getElementById('draw-count'); if(drawCount) drawCount.textContent=b.drawPile.length;
+  const discardCount=document.getElementById('discard-count'); if(discardCount) discardCount.textContent=b.discard.length;
+  const endBtn=document.getElementById('end-turn-btn'); if(endBtn) endBtn.disabled = b.over;
+}
+
+function drawCards(n){
+  const b=state.battle;
+  for(let i=0;i<n;i++){
+    if(b.drawPile.length===0){
+      if(b.discard.length===0) break;
+      b.drawPile=shuffle(b.discard); b.discard=[];
+      toast('Reshuffling your deck...');
+    }
+    b.hand.push(b.drawPile.pop());
+  }
+}
+function beginTurn(){
+  const b=state.battle; if(!b || b.over) return;
+  b.playerBlock=0; b.clock=30; b.spentAccum=0; b.nextThreshold=5; b.triggeredCount=0; b.haste=false;
+  b.discard.push(...b.hand); b.hand=[];
+  drawCards(5);
+  updateBattleUI();
+}
+function addClock(n){ state.battle.clock=Math.min(30,state.battle.clock+n); }
+function dealDamageToEnemy(dmg){
+  const b=state.battle;
+  const absorbed=Math.min(b.enemy.block||0,dmg);
+  b.enemy.block=(b.enemy.block||0)-absorbed;
+  const final=Math.max(0,dmg-absorbed);
+  b.enemy.hp-=final;
+  floatEnemyDamage(final,absorbed>0);
+  shakeStage();
+}
+function applyDamageToPlayer(dmg){
+  const b=state.battle;
+  const absorbed=Math.min(b.playerBlock,dmg);
+  b.playerBlock-=absorbed;
+  const final=Math.max(0,dmg-absorbed);
+  state.player.hp-=final;
+  floatPlayerDamage(final,absorbed>0 && final===0);
+  shakeStage();
+}
+function applyCardEffect(cd){
+  const b=state.battle;
+  switch(cd.type){
+    case 'attack': {
+      let dmg=cd.value; let bonus=false;
+      if(cd.id==='shatter' && b.enemy.frozen>0){ dmg+=14; b.enemy.frozen=0; addClock(6); bonus=true; sfx.combo(); toast('Shatter combo! +14 damage, +6s refunded.'); }
+      dealDamageToEnemy(dmg); spawnParticles('attack'); if(!bonus) sfx.attackHit();
+      break;
+    }
+    case 'defend': b.playerBlock+=cd.value; spawnParticles('defend'); sfx.block(); break;
+    case 'status':
+      if(cd.id==='freeze'){ dealDamageToEnemy(cd.value); b.enemy.frozen=1; spawnParticles('status'); sfx.freeze(); }
+      else if(cd.id==='poison_dart'){ dealDamageToEnemy(cd.value); b.enemy.poison=(b.enemy.poison||0)+cd.poison; spawnParticles('status'); sfx.poison(); }
+      else if(cd.id==='overclock'){ b.haste=true; spawnParticles('buff'); sfx.button(); }
+      break;
+    case 'time':
+      if(cd.value) dealDamageToEnemy(cd.value);
+      addClock(cd.refund);
+      spawnParticles('time'); sfx.refund();
+      break;
+  }
+}
+function checkThresholds(){
+  const b=state.battle;
+  while(b.spentAccum>=b.nextThreshold && b.nextThreshold<=30 && b.triggeredCount<4){
+    const dmg=2+state.floor*2;
+    applyDamageToPlayer(dmg);
+    toast(`Rift surge! You are struck for ${dmg}.`);
+    sfx.enemyAttack(true);
+    b.nextThreshold+=5; b.triggeredCount++;
+  }
+}
+function playCard(idx){
+  const b=state.battle; if(!b || b.over) return;
+  const inst=b.hand[idx]; if(!inst) return;
+  const cd=getCard(inst);
+  let cost=cd.cost;
+  if(b.haste && cost>0){ cost=Math.max(0,cost-4); b.haste=false; }
+  if(cost>b.clock){ toast('Not enough time for that.'); return; }
+  b.clock-=cost; b.spentAccum+=cost;
+  b.hand.splice(idx,1); b.discard.push(inst);
+  sfx.cardPlay();
+  applyCardEffect(cd);
+  checkThresholds();
+  updateBattleUI();
+  if(b.enemy.hp<=0){ b.over=true; updateBattleUI(); setTimeout(onEnemyDefeated,550); return; }
+  if(state.player.hp<=0){ b.over=true; updateBattleUI(); setTimeout(onPlayerDefeated,550); return; }
+  if(b.clock<=0){ b.over='pending'; setTimeout(()=>{ if(state.battle){ state.battle.over=false; enemyTurn(); } },750); }
+}
+function endTurnBtn(){ const b=state.battle; if(!b||b.over) return; enemyTurn(); }
+function enemyTurn(){
+  const b=state.battle; if(!b || b.over) return;
+  if(b.enemy.poison>0){
+    const pd=b.enemy.poison;
+    b.enemy.hp-=pd; b.enemy.poison=Math.max(0,b.enemy.poison-1);
+    floatEnemyDamage(pd,false); toast(`Poison burns for ${pd}.`);
+    if(b.enemy.hp<=0){ b.over=true; updateBattleUI(); setTimeout(onEnemyDefeated,550); return; }
+  }
+  b.enemy.block=0;
+  const intent=b.enemy.pattern[b.enemy.patternIndex % b.enemy.pattern.length];
+  if(intent.type==='attack'){
+    let dmg=intent.value;
+    if(b.enemy.frozen>0){ dmg=Math.round(dmg*0.5); b.enemy.frozen=0; toast('The enemy was Frozen \u2014 attack weakened.'); }
+    applyDamageToPlayer(dmg); sfx.enemyAttack(false);
+  } else if(intent.type==='defend'){
+    b.enemy.block=intent.value;
+  }
+  b.enemy.patternIndex++;
+  updateBattleUI();
+  if(state.player.hp<=0){ b.over=true; setTimeout(onPlayerDefeated,600); return; }
+  setTimeout(()=>{ if(state.battle && !state.battle.over) beginTurn(); },700);
+}
+
+function onEnemyDefeated(){
+  sfx.victory();
+  const gold = 15 + state.floor*10 + randInt(0,15);
+  state.player.gold += gold;
+  const wasBoss = state.battle.isBoss;
+  state.reward = { gold, wasBoss, choices: randomCardIds(3) };
+  goto('reward');
+}
+function onPlayerDefeated(){ sfx.defeat(); goto('gameover'); }
+
+function renderReward(){
+  const app=document.getElementById('app');
+  const rw=state.reward;
+  const cardsHtml = rw.choices.map(id=>{
+    const cd=getCard({id, upgraded:false});
+    return `<div class="offer-card"><div class="card ${cd.type}"><div class="card-cost">${cd.cost}</div>
+      <div class="card-name">${cd.name}</div><div class="card-type-tag">${cd.type}</div><div class="card-desc">${cd.desc}</div></div>
+      <button class="btn btn-primary" style="margin-top:6px;width:100%;" onclick="chooseReward('${id}')">Add to deck</button></div>`;
+  }).join('');
+  app.innerHTML = `
+  <div class="screen panel-screen">
+    <div class="panel-box" style="max-width:760px;">
+      <div class="panel-title title-display">${rw.wasBoss? 'Floor Cleared!' : 'Victory'}</div>
+      <div class="panel-text">You found <b style="color:var(--brass)">${rw.gold} gold</b>. Choose a card to add to your deck.</div>
+      <div class="offer-grid">${cardsHtml}</div>
+      <div class="btn-row" style="justify-content:center;margin-top:14px;">
+        <button class="btn btn-ghost" onclick="skipReward();">Skip</button>
+      </div>
+    </div>
+  </div>`;
+}
+function afterReward(){
+  const node=state.battle.node; const wasBoss=state.battle.isBoss;
+  state.battle=null; state.reward=null;
+  if(wasBoss){ goto('victory'); return; }
+  advanceFromNode(node);
+  goto('map');
+}
+function chooseReward(id){ state.player.deck.push(newCard(id)); sfx.combo(); afterReward(); }
+function skipReward(){ sfx.button(); afterReward(); }
+
+/* ---------------------------- GAME OVER / VICTORY ---------------------------- */
+function renderGameOver(){
+  const app=document.getElementById('app');
+  app.innerHTML = `
+  <div class="screen panel-screen">
+    <div class="panel-box">
+      <div class="panel-title title-display" style="color:var(--rust);">Time Runs Out</div>
+      <div class="panel-text">You fell on Floor ${state.floor}. The rift claims another wanderer.</div>
+      <div class="btn-row" style="justify-content:center;">
+        <button class="btn btn-primary" onclick="sfx.button(); newRun();">New Run</button>
+      </div>
+    </div>
+  </div>`;
+}
+function renderVictory(){
+  const app=document.getElementById('app');
+  app.innerHTML = `
+  <div class="screen panel-screen">
+    <div class="panel-box">
+      <div class="panel-title title-display" style="color:var(--brass);">The Chronarch Falls</div>
+      <div class="panel-text">You bent time itself to your will and cleared all three floors. The rift falls silent.</div>
+      <div class="btn-row" style="justify-content:center;">
+        <button class="btn btn-primary" onclick="sfx.button(); newRun();">Play Again</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ---------------------------- BOOT ---------------------------- */
+renderTitle();
+</script>
+</body>
+</html>

@@ -1,0 +1,1652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orbital Alchemist</title>
+<style>
+  :root{
+    --bg:#0b0d17;
+    --bg-deep:#05060c;
+    --panel:#131730;
+    --panel-2:#171c3a;
+    --border: rgba(150,170,255,0.14);
+    --cyan:#22d3ee;
+    --cyan-dim: rgba(34,211,238,0.35);
+    --purple:#a78bfa;
+    --gold:#fbbf24;
+    --pink:#ec4899;
+    --red:#ef4444;
+    --text:#e7e9f5;
+    --dim:#8a90b3;
+    --dim-2:#5b6088;
+    --good:#34d399;
+  }
+
+  *,*::before,*::after{ box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{
+    margin:0;
+    background:
+      radial-gradient(ellipse 900px 600px at 20% -10%, rgba(167,139,250,0.10), transparent 60%),
+      radial-gradient(ellipse 900px 700px at 100% 10%, rgba(34,211,238,0.08), transparent 55%),
+      var(--bg);
+    color:var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    min-height:100%;
+  }
+  .mono{ font-family:"Courier New", Consolas, monospace; letter-spacing:0.02em; }
+
+  button{ font-family:inherit; cursor:pointer; }
+  button:disabled{ cursor:not-allowed; opacity:0.45; filter:grayscale(0.3); }
+  button:focus-visible, .grid-slot:focus-visible, canvas:focus-visible{
+    outline:2px solid var(--cyan);
+    outline-offset:2px;
+  }
+
+  /* ---------- Header ---------- */
+  .app-header{
+    text-align:center;
+    padding:22px 16px 8px;
+  }
+  .app-header h1{
+    margin:0;
+    font-size:2.1rem;
+    font-weight:800;
+    letter-spacing:0.06em;
+    background:linear-gradient(90deg, var(--cyan), var(--purple) 55%, var(--gold));
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+    text-shadow:0 0 30px rgba(167,139,250,0.25);
+  }
+  .app-header p{
+    margin:6px 0 0;
+    color:var(--dim);
+    font-size:0.92rem;
+  }
+
+  /* ---------- Layout ---------- */
+  .main-layout{
+    display:flex;
+    gap:26px;
+    padding:18px 24px 60px;
+    max-width:1360px;
+    margin:0 auto;
+    align-items:flex-start;
+    flex-wrap:wrap;
+    justify-content:center;
+  }
+  .left-col{
+    flex:0 0 620px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:14px;
+  }
+  .right-col{
+    flex:1 1 420px;
+    min-width:400px;
+    max-width:620px;
+    display:flex;
+    flex-direction:column;
+  }
+
+  /* ---------- Stats overlay bar ---------- */
+  .stats-bar{
+    width:100%;
+    display:flex;
+    gap:10px;
+    background:linear-gradient(180deg, var(--panel-2), var(--panel));
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:14px 18px;
+    box-shadow:0 0 24px rgba(34,211,238,0.08), inset 0 1px 0 rgba(255,255,255,0.03);
+  }
+  .stat-block{ flex:1; text-align:center; }
+  .stat-block .label{
+    font-size:0.72rem;
+    color:var(--dim);
+    margin-bottom:4px;
+  }
+  .stat-block .value{
+    font-size:1.28rem;
+    font-weight:700;
+  }
+  #energyVal{ color:var(--cyan); text-shadow:0 0 12px var(--cyan-dim); }
+  #epsVal{ color:var(--good); }
+  #stardustVal{ color:var(--gold); text-shadow:0 0 12px rgba(251,191,36,0.35); }
+  .stat-block .sub{ color:var(--dim-2); font-size:0.7rem; margin-top:2px; }
+
+  /* ---------- Canvas ---------- */
+  .canvas-wrap{
+    position:relative;
+    width:100%;
+    max-width:600px;
+    border-radius:18px;
+    overflow:hidden;
+    border:1px solid var(--border);
+    background:radial-gradient(circle at 50% 42%, #0f1230, var(--bg-deep) 78%);
+    box-shadow:0 0 50px rgba(34,211,238,0.06), inset 0 0 60px rgba(0,0,0,0.5);
+  }
+  #coreCanvas{
+    display:block;
+    width:100%;
+    height:auto;
+    cursor:pointer;
+  }
+  .canvas-foot{
+    display:flex;
+    justify-content:space-between;
+    width:100%;
+    max-width:600px;
+    color:var(--dim);
+    font-size:0.8rem;
+    padding:0 4px;
+  }
+  .canvas-foot span.mono{ color:var(--text); }
+
+  /* screen shake */
+  @keyframes shakeAnim{
+    0%{ transform:translate(0,0); }
+    20%{ transform:translate(-4px,3px); }
+    40%{ transform:translate(4px,-3px); }
+    60%{ transform:translate(-3px,-3px); }
+    80%{ transform:translate(3px,3px); }
+    100%{ transform:translate(0,0); }
+  }
+  body.shake{ animation:shakeAnim 0.28s ease; }
+
+  /* ---------- Tabs ---------- */
+  .tabs{
+    display:flex;
+    gap:6px;
+    border-bottom:1px solid var(--border);
+    margin-bottom:16px;
+  }
+  .tab-btn{
+    flex:1;
+    background:transparent;
+    border:none;
+    color:var(--dim);
+    padding:12px 8px 14px;
+    font-size:0.9rem;
+    font-weight:600;
+    border-bottom:2px solid transparent;
+    transition:color .15s, border-color .15s;
+  }
+  .tab-btn:hover{ color:var(--text); }
+  .tab-btn.active{
+    color:var(--cyan);
+    border-bottom-color:var(--cyan);
+    text-shadow:0 0 14px var(--cyan-dim);
+  }
+
+  @keyframes fadeIn{ from{ opacity:0; transform:translateY(4px); } to{ opacity:1; transform:translateY(0); } }
+  .tab-panel{ display:none; }
+  .tab-panel.active{ display:block; animation:fadeIn 0.22s ease; }
+
+  .panel-card{
+    background:linear-gradient(180deg, var(--panel-2), var(--panel));
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:16px;
+  }
+  .panel-card + .panel-card{ margin-top:14px; }
+  .panel-title{
+    font-size:0.95rem;
+    font-weight:700;
+    margin:0 0 4px;
+    color:var(--text);
+  }
+  .panel-desc{
+    font-size:0.8rem;
+    color:var(--dim);
+    margin:0 0 12px;
+    line-height:1.4;
+  }
+
+  /* ---------- Grid tab ---------- */
+  .spawn-row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin-bottom:14px;
+  }
+  .btn-primary{
+    background:linear-gradient(135deg, var(--cyan), #0891b2);
+    border:none;
+    color:#04212a;
+    font-weight:700;
+    padding:12px 18px;
+    border-radius:10px;
+    font-size:0.9rem;
+    box-shadow:0 0 18px rgba(34,211,238,0.35);
+    transition:transform .12s, box-shadow .12s;
+  }
+  .btn-primary:hover:not(:disabled){ transform:translateY(-1px); box-shadow:0 0 26px rgba(34,211,238,0.55); }
+  .spawn-cost{ color:var(--dim); font-size:0.82rem; }
+  .spawn-cost .mono{ color:var(--gold); }
+
+  .grid-hint{
+    font-size:0.78rem;
+    color:var(--dim-2);
+    margin-bottom:10px;
+  }
+  .grid-warning{
+    color:var(--red);
+    font-size:0.8rem;
+    font-weight:600;
+    margin-bottom:10px;
+    opacity:0;
+    max-height:0;
+    overflow:hidden;
+    transition:opacity .2s ease;
+  }
+  .grid-warning.show{ opacity:1; max-height:30px; }
+
+  .fusion-grid{
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:10px;
+  }
+  .grid-slot{
+    position:relative;
+    aspect-ratio:1;
+    border:1px solid var(--border);
+    border-radius:12px;
+    background:rgba(255,255,255,0.02);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    transition:transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+    overflow:visible;
+  }
+  .grid-slot.empty{ cursor:default; }
+  .grid-slot.filled{ cursor:pointer; border-color:rgba(255,255,255,0.1); }
+  .grid-slot.filled:hover{ transform:scale(1.06); }
+  .grid-slot.selected{ border-color:var(--gold); box-shadow:0 0 0 2px var(--gold), 0 0 16px rgba(251,191,36,0.5); }
+  .grid-slot.locked{ opacity:0.32; cursor:not-allowed; }
+  .grid-slot .lock-icon{ font-size:1.2rem; color:var(--dim-2); }
+  .moon-orb{
+    width:58%;
+    aspect-ratio:1;
+    border-radius:50%;
+  }
+  .moon-label{
+    font-size:0.6rem;
+    color:var(--dim);
+    margin-top:6px;
+    text-align:center;
+    padding:0 4px;
+  }
+  .moon-tier{
+    font-size:0.62rem;
+    color:var(--dim-2);
+    font-family:"Courier New", Consolas, monospace;
+  }
+
+  .confetti-piece{
+    position:absolute;
+    width:6px; height:6px;
+    border-radius:50%;
+    left:50%; top:50%;
+    pointer-events:none;
+    animation:confettiFly 0.65s ease-out forwards;
+  }
+  @keyframes confettiFly{ to{ transform:translate(var(--dx), var(--dy)) scale(0); opacity:0; } }
+
+  /* ---------- Store / Prestige rows ---------- */
+  .buy-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+  }
+  .buy-row .info{ flex:1; }
+  .buy-row .stat-line{
+    font-size:0.76rem;
+    color:var(--dim);
+    margin-top:6px;
+  }
+  .buy-row .stat-line .mono{ color:var(--text); }
+  .btn-buy{
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    color:var(--text);
+    padding:10px 14px;
+    border-radius:10px;
+    min-width:104px;
+    font-size:0.82rem;
+    font-weight:600;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  .btn-buy:hover:not(:disabled){ border-color:var(--cyan); box-shadow:0 0 14px rgba(34,211,238,0.25); }
+  .btn-buy .cost{ display:block; font-size:0.72rem; color:var(--gold); margin-top:2px; }
+  .btn-buy.talent:hover:not(:disabled){ border-color:var(--purple); box-shadow:0 0 14px rgba(167,139,250,0.3); }
+  .btn-buy.talent .cost{ color:var(--purple); }
+
+  .progress-track{
+    width:100%;
+    height:10px;
+    background:rgba(255,255,255,0.06);
+    border-radius:6px;
+    overflow:hidden;
+    margin:8px 0 4px;
+  }
+  .progress-fill{
+    height:100%;
+    background:linear-gradient(90deg, var(--purple), var(--pink));
+    width:0%;
+    transition:width .3s ease;
+  }
+
+  .btn-supernova{
+    width:100%;
+    margin-top:14px;
+    padding:14px;
+    border-radius:12px;
+    border:none;
+    font-weight:800;
+    font-size:0.95rem;
+    letter-spacing:0.03em;
+    color:#2a0a1f;
+    background:linear-gradient(135deg, var(--gold), var(--pink));
+    box-shadow:0 0 24px rgba(236,72,153,0.35);
+    transition:transform .12s, box-shadow .12s;
+  }
+  .btn-supernova:hover:not(:disabled){ transform:translateY(-1px); box-shadow:0 0 32px rgba(236,72,153,0.55); }
+
+  /* ---------- Settings button ---------- */
+  .settings-btn{
+    position:fixed;
+    top:16px;
+    right:18px;
+    width:42px;
+    height:42px;
+    border-radius:50%;
+    border:1px solid var(--border);
+    background:var(--panel);
+    color:var(--dim);
+    font-size:1.15rem;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:20;
+    box-shadow:0 0 16px rgba(0,0,0,0.4);
+  }
+  .settings-btn:hover{ color:var(--cyan); border-color:var(--cyan); }
+
+  /* ---------- Modals ---------- */
+  .modal{
+    position:fixed;
+    inset:0;
+    background:rgba(4,5,12,0.72);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:60;
+    padding:20px;
+  }
+  .modal.hidden{ display:none; }
+  .modal-box{
+    background:linear-gradient(180deg, var(--panel-2), var(--panel));
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:26px;
+    max-width:420px;
+    width:100%;
+    box-shadow:0 0 50px rgba(34,211,238,0.12);
+    text-align:center;
+  }
+  .modal-box h2{ margin:0 0 10px; font-size:1.15rem; color:var(--text); }
+  .modal-box p{ margin:0 0 18px; color:var(--dim); font-size:0.88rem; line-height:1.5; }
+  .modal-actions{ display:flex; gap:10px; justify-content:center; }
+  .modal-actions button{
+    flex:1;
+    padding:11px;
+    border-radius:10px;
+    border:1px solid var(--border);
+    background:var(--panel-2);
+    color:var(--text);
+    font-weight:600;
+    font-size:0.85rem;
+  }
+  .modal-actions .primary{ background:linear-gradient(135deg, var(--cyan), #0891b2); color:#04212a; border:none; }
+  .modal-actions .danger{ background:linear-gradient(135deg, var(--red), #b91c1c); color:#fff; border:none; }
+  .offline-amount{ font-size:1.6rem; font-weight:800; color:var(--gold); margin:10px 0; text-shadow:0 0 16px rgba(251,191,36,0.4); }
+
+  .settings-list{ text-align:left; margin-bottom:16px; }
+  .settings-list .row{
+    display:flex;
+    justify-content:space-between;
+    padding:8px 0;
+    border-bottom:1px solid var(--border);
+    font-size:0.82rem;
+    color:var(--dim);
+  }
+
+  @media (max-width:1080px){
+    .main-layout{ flex-direction:column; align-items:center; }
+    .left-col{ flex:none; width:100%; max-width:600px; }
+    .right-col{ width:100%; max-width:600px; min-width:0; }
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    *{ animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+<button class="settings-btn" id="settingsBtn" type="button" aria-label="Settings" title="Settings">&#9881;</button>
+
+<header class="app-header">
+  <h1>ORBITAL ALCHEMIST</h1>
+  <p>Fuse moons, fuel the reactor, and chase the next Supernova.</p>
+</header>
+
+<div class="main-layout">
+
+  <!-- LEFT COLUMN: Canvas + Core -->
+  <div class="left-col">
+    <div class="stats-bar">
+      <div class="stat-block">
+        <div class="label">Energy</div>
+        <div class="value mono" id="energyVal">0</div>
+      </div>
+      <div class="stat-block">
+        <div class="label">Energy / sec</div>
+        <div class="value mono" id="epsVal">0/s</div>
+      </div>
+      <div class="stat-block">
+        <div class="label">Stardust Mult.</div>
+        <div class="value mono" id="stardustVal">0</div>
+        <div class="sub mono" id="multVal">x1.00</div>
+      </div>
+    </div>
+
+    <div class="canvas-wrap">
+      <canvas id="coreCanvas" width="600" height="600" tabindex="0" aria-label="Reactor core, click or press space to generate energy"></canvas>
+    </div>
+
+    <div class="canvas-foot">
+      <span>Click Power: <span class="mono" id="clickPowerVal">1</span></span>
+      <span>Crit Chance: <span class="mono" id="critChanceVal">12%</span></span>
+    </div>
+  </div>
+
+  <!-- RIGHT COLUMN: Dashboard -->
+  <div class="right-col">
+    <div class="tabs" role="tablist">
+      <button class="tab-btn active" data-tab="grid" type="button">Grid &amp; Fusion</button>
+      <button class="tab-btn" data-tab="store" type="button">Store &amp; Upgrades</button>
+      <button class="tab-btn" data-tab="prestige" type="button">Supernova</button>
+    </div>
+
+    <!-- TAB: Grid & Fusion -->
+    <div class="tab-panel active" id="tab-grid">
+      <div class="panel-card">
+        <div class="spawn-row">
+          <button class="btn-primary" id="spawnBtn" type="button">Spawn Moon (Tier 1)</button>
+          <div class="spawn-cost">Cost: <span class="mono" id="spawnCostVal">10</span></div>
+        </div>
+        <div class="grid-hint">Select two matching moons to fuse them, or drag one onto another. Matching tiers merge into the next tier up.</div>
+        <div class="grid-warning" id="gridWarning">Grid is full — fuse some moons to make room.</div>
+        <div class="fusion-grid" id="fusionGrid"></div>
+      </div>
+    </div>
+
+    <!-- TAB: Store & Upgrades -->
+    <div class="tab-panel" id="tab-store">
+      <div class="panel-card">
+        <div class="buy-row">
+          <div class="info">
+            <div class="panel-title">Moon Capacity</div>
+            <div class="panel-desc">Unlocks additional slots in the fusion grid, up to all 16.</div>
+            <div class="stat-line">Unlocked slots: <span class="mono" id="capacityLevelVal">6/16</span></div>
+          </div>
+          <button class="btn-buy" id="capacityBtn" type="button">Upgrade<span class="cost mono" id="capacityCostVal">250</span></button>
+        </div>
+      </div>
+      <div class="panel-card">
+        <div class="buy-row">
+          <div class="info">
+            <div class="panel-title">Spawn Rate</div>
+            <div class="panel-desc">Automatically spawns a free Tier 1 moon into an empty slot on a timer.</div>
+            <div class="stat-line">Level <span class="mono" id="spawnRateLevelVal">0</span> — every <span class="mono" id="spawnRateIntervalVal">25s</span></div>
+          </div>
+          <button class="btn-buy" id="spawnRateBtn" type="button">Upgrade<span class="cost mono" id="spawnRateCostVal">500</span></button>
+        </div>
+      </div>
+      <div class="panel-card">
+        <div class="buy-row">
+          <div class="info">
+            <div class="panel-title">Tap Power</div>
+            <div class="panel-desc">Increases the Energy earned from each core click.</div>
+            <div class="stat-line">Click Power: <span class="mono" id="tapPowerLevelVal">1</span></div>
+          </div>
+          <button class="btn-buy" id="tapPowerBtn" type="button">Upgrade<span class="cost mono" id="tapPowerCostVal">50</span></button>
+        </div>
+      </div>
+      <div class="panel-card">
+        <div class="buy-row">
+          <div class="info">
+            <div class="panel-title">Automated Fusion</div>
+            <div class="panel-desc">Automatically merges a matching pair of moons on a timer.</div>
+            <div class="stat-line">Level <span class="mono" id="autoFusionLevelVal">0</span> — every <span class="mono" id="autoFusionIntervalVal">10s</span></div>
+          </div>
+          <button class="btn-buy" id="autoFusionBtn" type="button">Upgrade<span class="cost mono" id="autoFusionCostVal">1000</span></button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: Supernova / Prestige -->
+    <div class="tab-panel" id="tab-prestige">
+      <div class="panel-card">
+        <div class="panel-title">Supernova</div>
+        <div class="panel-desc">Reach 1,000,000 lifetime Energy this cycle to trigger a Supernova. You'll gain Stardust and reset Energy, Grid Moons, and regular Upgrades — Stardust and Talents are kept forever.</div>
+        <div class="stat-line">Lifetime Energy this cycle: <span class="mono" id="lifetimeVal">0 / 1,000,000</span></div>
+        <div class="progress-track"><div class="progress-fill" id="lifetimeBar"></div></div>
+        <div class="stat-line">Stardust on trigger: <span class="mono" id="potentialStardustVal">0</span></div>
+        <button class="btn-supernova" id="supernovaBtn" type="button" disabled>Trigger Supernova</button>
+      </div>
+
+      <div class="panel-card">
+        <div class="buy-row">
+          <div class="info">
+            <div class="panel-title">Starlight Engine</div>
+            <div class="panel-desc">Permanently multiplies all Energy Per Second by +25% per level.</div>
+            <div class="stat-line">Level <span class="mono" id="starlightLevelVal">0</span> — current mult <span class="mono" id="starlightEffectVal">x1.00</span></div>
+          </div>
+          <button class="btn-buy talent" id="starlightBtn" type="button">Buy<span class="cost mono" id="starlightCostVal">5</span></button>
+        </div>
+      </div>
+      <div class="panel-card">
+        <div class="buy-row">
+          <div class="info">
+            <div class="panel-title">Quantum Fusion</div>
+            <div class="panel-desc">Gives newly spawned moons a chance to appear at Tier 2 or 3 directly.</div>
+            <div class="stat-line">Level <span class="mono" id="quantumLevelVal">0</span> — chance <span class="mono" id="quantumEffectVal">0%</span></div>
+          </div>
+          <button class="btn-buy talent" id="quantumBtn" type="button">Buy<span class="cost mono" id="quantumCostVal">8</span></button>
+        </div>
+      </div>
+      <div class="panel-card">
+        <div class="buy-row">
+          <div class="info">
+            <div class="panel-title">Auto-Collider</div>
+            <div class="panel-desc">Automatically merges matching lowest-tier moons on the grid on a timer.</div>
+            <div class="stat-line">Level <span class="mono" id="colliderLevelVal">0</span> — every <span class="mono" id="colliderIntervalVal">off</span></div>
+          </div>
+          <button class="btn-buy talent" id="colliderBtn" type="button">Buy<span class="cost mono" id="colliderCostVal">15</span></button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal hidden" id="settingsModal">
+  <div class="modal-box">
+    <h2>Settings</h2>
+    <div class="settings-list">
+      <div class="row"><span>Autosave</span><span>Every 5 seconds</span></div>
+      <div class="row"><span>Offline earnings</span><span>50% of EPS, capped at 12h</span></div>
+    </div>
+    <div class="modal-actions">
+      <button type="button" id="closeSettingsBtn">Close</button>
+      <button type="button" class="danger" id="resetProgressBtn">Reset Progress</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Modal -->
+<div class="modal hidden" id="confirmModal">
+  <div class="modal-box">
+    <h2>Are you sure?</h2>
+    <p id="confirmMessage">Are you sure?</p>
+    <div class="modal-actions">
+      <button type="button" id="confirmNoBtn">Cancel</button>
+      <button type="button" class="primary" id="confirmYesBtn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- Welcome Back / Offline Modal -->
+<div class="modal hidden" id="welcomeModal">
+  <div class="modal-box">
+    <h2>Welcome back</h2>
+    <p>Your reactor kept running while you were away for <span class="mono" id="offlineTime">0s</span>.</p>
+    <div class="offline-amount mono" id="offlineAmount">+0</div>
+    <div class="modal-actions">
+      <button type="button" class="primary" id="closeWelcomeBtn">Collect</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* =========================================================
+   CONSTANTS
+   ========================================================= */
+const GRID_SIZE = 16;
+const BASE_SLOTS = 6;
+const MAX_CAPACITY_LEVEL = GRID_SIZE - BASE_SLOTS;
+const BASE_SPAWN_COST = 10;
+const SPAWN_COST_GROWTH = 1.15;
+const BASE_DPS = 0.5;
+const CRIT_CHANCE = 0.12;
+const CRIT_MULT = 6;
+const SAVE_KEY = 'orbitalAlchemist_save_v1';
+const CORE_RADIUS = 66;
+const PRESTIGE_THRESHOLD = 1000000;
+
+const TIERS = [
+  { name:'Asteroid',      color:'#9ca3af', mult:1 },
+  { name:'Plasma Orb',    color:'#22d3ee', mult:3 },
+  { name:'Pulsar',        color:'#a78bfa', mult:10 },
+  { name:'Neutron Star',  color:'#fbbf24', mult:35 },
+  { name:'Cosmic Core',   color:'rainbow', mult:140 },
+  { name:'Stellar Forge', color:'rainbow', mult:560 },
+  { name:'Event Horizon', color:'rainbow', mult:2240 },
+  { name:'Singularity',   color:'rainbow', mult:8960 }
+];
+
+/* =========================================================
+   DOM REFERENCES
+   ========================================================= */
+const el = {};
+[
+  'energyVal','epsVal','stardustVal','multVal','clickPowerVal','critChanceVal',
+  'spawnBtn','spawnCostVal','gridWarning','fusionGrid',
+  'capacityBtn','capacityCostVal','capacityLevelVal',
+  'spawnRateBtn','spawnRateCostVal','spawnRateLevelVal','spawnRateIntervalVal',
+  'tapPowerBtn','tapPowerCostVal','tapPowerLevelVal',
+  'autoFusionBtn','autoFusionCostVal','autoFusionLevelVal','autoFusionIntervalVal',
+  'lifetimeVal','lifetimeBar','potentialStardustVal','supernovaBtn',
+  'starlightBtn','starlightCostVal','starlightLevelVal','starlightEffectVal',
+  'quantumBtn','quantumCostVal','quantumLevelVal','quantumEffectVal',
+  'colliderBtn','colliderCostVal','colliderLevelVal','colliderIntervalVal',
+  'settingsBtn','settingsModal','closeSettingsBtn','resetProgressBtn',
+  'confirmModal','confirmMessage','confirmYesBtn','confirmNoBtn',
+  'welcomeModal','offlineAmount','offlineTime','closeWelcomeBtn',
+  'coreCanvas'
+].forEach(id => { el[id] = document.getElementById(id); });
+
+const gridEl = el.fusionGrid;
+const canvas = el.coreCanvas;
+const ctx = canvas.getContext('2d');
+
+/* =========================================================
+   STATE
+   ========================================================= */
+function createNewState(){
+  return {
+    energy:0,
+    lifetimeEnergy:0,
+    stardust:0,
+    totalStardustEarned:0,
+    clickPower:1,
+    eps:0,
+    grid:new Array(GRID_SIZE).fill(null),
+    moonsBought:0,
+    upgrades:{ capacity:0, spawnRate:0, tapPower:0, autoFusion:0 },
+    talents:{ starlightEngine:0, quantumFusion:0, autoCollider:0 },
+    timers:{ autoSpawn:0, autoFusion:0, autoCollider:0 },
+    lastSeen: Date.now()
+  };
+}
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(SAVE_KEY);
+    if(!raw) return createNewState();
+    const parsed = JSON.parse(raw);
+    const fresh = createNewState();
+    const merged = Object.assign({}, fresh, parsed);
+    merged.upgrades = Object.assign({}, fresh.upgrades, parsed.upgrades || {});
+    merged.talents = Object.assign({}, fresh.talents, parsed.talents || {});
+    merged.timers = Object.assign({}, fresh.timers, parsed.timers || {});
+    if(!Array.isArray(merged.grid) || merged.grid.length !== GRID_SIZE){
+      merged.grid = fresh.grid;
+    }
+    if(typeof merged.energy !== 'number' || merged.energy < 0 || isNaN(merged.energy)) merged.energy = 0;
+    if(typeof merged.lifetimeEnergy !== 'number' || merged.lifetimeEnergy < 0 || isNaN(merged.lifetimeEnergy)) merged.lifetimeEnergy = 0;
+    if(typeof merged.stardust !== 'number' || merged.stardust < 0 || isNaN(merged.stardust)) merged.stardust = 0;
+    return merged;
+  }catch(e){
+    console.warn('Save data could not be read, starting fresh.', e);
+    return createNewState();
+  }
+}
+
+function saveState(){
+  try{
+    state.lastSeen = Date.now();
+    localStorage.setItem(SAVE_KEY, JSON.stringify(state));
+  }catch(e){
+    console.warn('Autosave failed', e);
+  }
+}
+
+var state = loadState();
+let selectedSlot = null;
+let dragSourceIndex = null;
+let pendingConfirmAction = null;
+let gridWarnTimeout = null;
+
+/* =========================================================
+   FORMATTING
+   ========================================================= */
+function formatNumber(num){
+  if(num === undefined || num === null || Number.isNaN(num)) return '0';
+  const sign = num < 0 ? '-' : '';
+  const n = Math.abs(num);
+  if(n < 1000){
+    const rounded = Math.round(n * 100) / 100;
+    if(rounded < 10) return sign + rounded.toFixed(2);
+    if(rounded < 100) return sign + rounded.toFixed(1);
+    return sign + Math.round(rounded).toString();
+  }
+  if(n < 1e6) return sign + Math.floor(n).toLocaleString('en-US');
+  const suffixes = ['','K','M','B','T','Qa','Qi','Sx','Sp','Oc','No','Dc'];
+  const tier = Math.min(suffixes.length - 1, Math.floor(Math.log10(n) / 3));
+  const scaled = n / Math.pow(1000, tier);
+  if(tier >= suffixes.length - 1 && scaled >= 1000) return sign + n.toExponential(2);
+  return sign + scaled.toFixed(2) + suffixes[tier];
+}
+
+function formatDuration(sec){
+  sec = Math.floor(Math.max(0, sec));
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = sec % 60;
+  if(h > 0) return h + 'h ' + m + 'm';
+  if(m > 0) return m + 'm ' + s + 's';
+  return s + 's';
+}
+
+/* =========================================================
+   TIER HELPERS
+   ========================================================= */
+function getTierInfo(tier){
+  if(tier >= 1 && tier <= TIERS.length){
+    const t = TIERS[tier - 1];
+    return { name:t.name, color:t.color, mult:t.mult, tier:tier };
+  }
+  const extra = tier - TIERS.length;
+  const last = TIERS[TIERS.length - 1];
+  return { name:'Singularity Mk' + extra, color:'rainbow', mult: last.mult * Math.pow(4, extra), tier:tier };
+}
+
+function hashRand(seed){
+  const x = Math.sin(seed) * 10000;
+  return x - Math.floor(x);
+}
+
+function getTierColor(tier){
+  const info = getTierInfo(tier);
+  if(info.color === 'rainbow'){
+    const hue = (Date.now() / 20 + tier * 40) % 360;
+    return 'hsl(' + hue.toFixed(0) + ',85%,60%)';
+  }
+  return info.color;
+}
+
+/* =========================================================
+   ECONOMY
+   ========================================================= */
+function getUnlockedSlots(){
+  return Math.min(GRID_SIZE, BASE_SLOTS + state.upgrades.capacity);
+}
+
+function getSpawnCost(){
+  return BASE_SPAWN_COST * Math.pow(SPAWN_COST_GROWTH, state.moonsBought);
+}
+function getCapacityCost(){ return 250 * Math.pow(1.6, state.upgrades.capacity); }
+function getSpawnRateCost(){ return 500 * Math.pow(1.8, state.upgrades.spawnRate); }
+function getTapPowerCost(){ return 50 * Math.pow(1.25, state.upgrades.tapPower); }
+function getAutoFusionCost(){ return 1000 * Math.pow(2.0, state.upgrades.autoFusion); }
+function getStarlightCost(){ return 5 * Math.pow(1.4, state.talents.starlightEngine); }
+function getQuantumCost(){ return 8 * Math.pow(1.5, state.talents.quantumFusion); }
+function getColliderCost(){ return 15 * Math.pow(1.6, state.talents.autoCollider); }
+
+function getAutoSpawnInterval(){ return Math.max(5, 25 - state.upgrades.spawnRate * 2); }
+function getAutoFusionInterval(){ return Math.max(2, 10 - state.upgrades.autoFusion * 1); }
+function getAutoColliderInterval(){ return Math.max(2, 10 - (state.talents.autoCollider - 1) * 1); }
+
+function getPrestigeMultiplier(){ return 1 + 0.25 * state.talents.starlightEngine; }
+
+function computeEPS(){
+  let total = 0;
+  const unlocked = getUnlockedSlots();
+  for(let i = 0; i < unlocked; i++){
+    const m = state.grid[i];
+    if(m){ total += BASE_DPS * getTierInfo(m.tier).mult; }
+  }
+  return total * getPrestigeMultiplier();
+}
+
+function potentialStardust(){
+  if(state.lifetimeEnergy <= 0) return 0;
+  return Math.floor(10 * Math.sqrt(state.lifetimeEnergy / 100000));
+}
+function canPrestige(){ return state.lifetimeEnergy >= PRESTIGE_THRESHOLD; }
+
+/* =========================================================
+   GRID ACTIONS
+   ========================================================= */
+function findEmptySlot(){
+  const unlocked = getUnlockedSlots();
+  return state.grid.findIndex((m, idx) => idx < unlocked && !m);
+}
+
+function placeMoon(idx){
+  let tier = 1;
+  const qLevel = state.talents.quantumFusion;
+  if(qLevel > 0){
+    const chance = Math.min(1, 0.05 * qLevel);
+    if(Math.random() < chance){ tier = Math.random() < 0.5 ? 2 : 3; }
+  }
+  state.grid[idx] = { tier: tier };
+}
+
+function flashGridWarning(){
+  el.gridWarning.classList.add('show');
+  if(gridWarnTimeout) clearTimeout(gridWarnTimeout);
+  gridWarnTimeout = setTimeout(() => { el.gridWarning.classList.remove('show'); }, 1800);
+}
+
+function trySpawnMoon(){
+  const cost = getSpawnCost();
+  if(state.energy < cost) return;
+  const idx = findEmptySlot();
+  if(idx === -1){ flashGridWarning(); return; }
+  state.energy -= cost;
+  state.moonsBought++;
+  placeMoon(idx);
+  renderGrid();
+  updateStatsUI();
+}
+
+function attemptAutoSpawn(){
+  const idx = findEmptySlot();
+  if(idx === -1) return;
+  placeMoon(idx);
+  renderGrid();
+}
+
+function getTiersPresent(){
+  const unlocked = getUnlockedSlots();
+  const map = {};
+  for(let idx = 0; idx < unlocked; idx++){
+    const m = state.grid[idx];
+    if(m){
+      if(!map[m.tier]) map[m.tier] = [];
+      map[m.tier].push(idx);
+    }
+  }
+  return map;
+}
+
+function mergeAndCelebrate(targetIdx, sourceIdx){
+  state.grid[targetIdx].tier += 1;
+  state.grid[sourceIdx] = null;
+  triggerScreenShake();
+  renderGrid();
+  const cellEl = gridEl.querySelector('[data-index="' + targetIdx + '"]');
+  if(cellEl) spawnConfettiAt(cellEl);
+}
+
+function attemptAutoFusion(){
+  const tiersPresent = getTiersPresent();
+  const tierKeys = Object.keys(tiersPresent).map(Number).sort((a,b) => a - b);
+  for(const t of tierKeys){
+    const idxs = tiersPresent[t];
+    if(idxs.length >= 2){
+      mergeAndCelebrate(idxs[0], idxs[1]);
+      return;
+    }
+  }
+}
+
+function attemptAutoCollider(){
+  const tiersPresent = getTiersPresent();
+  const tierKeys = Object.keys(tiersPresent).map(Number).sort((a,b) => a - b);
+  if(tierKeys.length === 0) return;
+  const lowest = tierKeys[0];
+  const idxs = tiersPresent[lowest];
+  if(idxs.length >= 2){
+    mergeAndCelebrate(idxs[0], idxs[1]);
+  }
+}
+
+function handleSlotClick(i){
+  const unlocked = getUnlockedSlots();
+  if(i >= unlocked) return;
+  if(!state.grid[i]){
+    selectedSlot = null;
+    renderGrid();
+    return;
+  }
+  if(selectedSlot === null){
+    selectedSlot = i;
+    renderGrid();
+    return;
+  }
+  if(selectedSlot === i){
+    selectedSlot = null;
+    renderGrid();
+    return;
+  }
+  const a = state.grid[selectedSlot];
+  const b = state.grid[i];
+  if(a && b && a.tier === b.tier){
+    const target = i, source = selectedSlot;
+    selectedSlot = null;
+    mergeAndCelebrate(target, source);
+    return;
+  }
+  selectedSlot = i;
+  renderGrid();
+}
+
+/* =========================================================
+   UPGRADE / TALENT PURCHASES
+   ========================================================= */
+function buyCapacity(){
+  if(state.upgrades.capacity >= MAX_CAPACITY_LEVEL) return;
+  const cost = getCapacityCost();
+  if(state.energy < cost) return;
+  state.energy -= cost;
+  state.upgrades.capacity++;
+  renderGrid();
+  updateStatsUI();
+}
+function buySpawnRate(){
+  const cost = getSpawnRateCost();
+  if(state.energy < cost) return;
+  state.energy -= cost;
+  const wasZero = state.upgrades.spawnRate === 0;
+  state.upgrades.spawnRate++;
+  if(wasZero) state.timers.autoSpawn = getAutoSpawnInterval();
+  updateStatsUI();
+}
+function buyTapPower(){
+  const cost = getTapPowerCost();
+  if(state.energy < cost) return;
+  state.energy -= cost;
+  state.upgrades.tapPower++;
+  state.clickPower = 1 + state.upgrades.tapPower;
+  updateStatsUI();
+}
+function buyAutoFusion(){
+  const cost = getAutoFusionCost();
+  if(state.energy < cost) return;
+  state.energy -= cost;
+  const wasZero = state.upgrades.autoFusion === 0;
+  state.upgrades.autoFusion++;
+  if(wasZero) state.timers.autoFusion = getAutoFusionInterval();
+  updateStatsUI();
+}
+function buyStarlight(){
+  const cost = getStarlightCost();
+  if(state.stardust < cost) return;
+  state.stardust -= cost;
+  state.talents.starlightEngine++;
+  updateStatsUI();
+}
+function buyQuantum(){
+  const cost = getQuantumCost();
+  if(state.stardust < cost) return;
+  state.stardust -= cost;
+  state.talents.quantumFusion++;
+  updateStatsUI();
+}
+function buyCollider(){
+  const cost = getColliderCost();
+  if(state.stardust < cost) return;
+  state.stardust -= cost;
+  const wasZero = state.talents.autoCollider === 0;
+  state.talents.autoCollider++;
+  if(wasZero) state.timers.autoCollider = getAutoColliderInterval();
+  updateStatsUI();
+}
+
+/* =========================================================
+   PRESTIGE
+   ========================================================= */
+function triggerSupernovaClick(){
+  if(!canPrestige()) return;
+  const gain = potentialStardust();
+  showConfirm('Trigger Supernova? You will gain ' + formatNumber(gain) + ' Stardust but lose current Energy, Grid Moons, and regular Upgrades. Stardust and Talents are kept.', doSupernova);
+}
+
+function doSupernova(){
+  const gain = potentialStardust();
+  state.stardust += gain;
+  state.totalStardustEarned += gain;
+  state.energy = 0;
+  state.lifetimeEnergy = 0;
+  state.grid = new Array(GRID_SIZE).fill(null);
+  state.moonsBought = 0;
+  state.upgrades = { capacity:0, spawnRate:0, tapPower:0, autoFusion:0 };
+  state.clickPower = 1;
+  state.timers.autoSpawn = 0;
+  state.timers.autoFusion = 0;
+  selectedSlot = null;
+  orbiterMap.clear();
+  renderGrid();
+  updateStatsUI();
+  saveState();
+}
+
+/* =========================================================
+   OFFLINE EARNINGS
+   ========================================================= */
+function applyOfflineEarnings(){
+  const now = Date.now();
+  const last = state.lastSeen || now;
+  let deltaSec = (now - last) / 1000;
+  if(deltaSec < 15) return;
+  deltaSec = Math.min(deltaSec, 12 * 3600);
+  const eps = computeEPS();
+  const gain = eps * deltaSec * 0.5;
+  if(gain <= 0) return;
+  state.energy += gain;
+  state.lifetimeEnergy += gain;
+  el.offlineAmount.textContent = '+' + formatNumber(gain);
+  el.offlineTime.textContent = formatDuration(deltaSec);
+  openModal(el.welcomeModal);
+}
+
+/* =========================================================
+   MODALS
+   ========================================================= */
+function openModal(modalEl){ modalEl.classList.remove('hidden'); }
+function closeModal(modalEl){ modalEl.classList.add('hidden'); }
+
+function showConfirm(message, onYes){
+  el.confirmMessage.textContent = message;
+  pendingConfirmAction = onYes;
+  openModal(el.confirmModal);
+}
+
+function resetProgressClick(){
+  showConfirm('Reset ALL progress including Stardust and Talents? This cannot be undone.', () => {
+    localStorage.removeItem(SAVE_KEY);
+    state = createNewState();
+    selectedSlot = null;
+    orbiterMap.clear();
+    particles.length = 0;
+    closeModal(el.settingsModal);
+    renderGrid();
+    updateStatsUI();
+  });
+}
+
+/* =========================================================
+   GRID RENDERING
+   ========================================================= */
+function renderGrid(){
+  gridEl.innerHTML = '';
+  const unlocked = getUnlockedSlots();
+  for(let i = 0; i < GRID_SIZE; i++){
+    const cell = document.createElement('div');
+    cell.className = 'grid-slot';
+    cell.dataset.index = String(i);
+    cell.setAttribute('tabindex', '0');
+    cell.setAttribute('role', 'button');
+
+    if(i >= unlocked){
+      cell.classList.add('locked');
+      cell.innerHTML = '<span class="lock-icon">&#128274;</span>';
+    } else if(state.grid[i]){
+      const moon = state.grid[i];
+      const info = getTierInfo(moon.tier);
+      const color = getTierColor(moon.tier);
+      cell.classList.add('filled');
+      cell.draggable = true;
+      if(selectedSlot === i) cell.classList.add('selected');
+      cell.innerHTML =
+        '<div class="moon-orb" style="background:radial-gradient(circle at 35% 30%, #ffffffaa, ' + color + ');box-shadow:0 0 16px ' + color + ', 0 0 4px ' + color + ' inset;"></div>' +
+        '<div class="moon-label">' + info.name + '</div>' +
+        '<div class="moon-tier">T' + moon.tier + '</div>';
+    } else {
+      cell.classList.add('empty');
+    }
+    gridEl.appendChild(cell);
+  }
+}
+
+/* =========================================================
+   STATS / STORE / PRESTIGE UI
+   ========================================================= */
+const buyables = [
+  { costEl: el.spawnCostVal, btn: el.spawnBtn, cost: getSpawnCost, currency: () => state.energy },
+  { costEl: el.capacityCostVal, btn: el.capacityBtn, cost: getCapacityCost, currency: () => state.energy, maxed: () => state.upgrades.capacity >= MAX_CAPACITY_LEVEL },
+  { costEl: el.spawnRateCostVal, btn: el.spawnRateBtn, cost: getSpawnRateCost, currency: () => state.energy },
+  { costEl: el.tapPowerCostVal, btn: el.tapPowerBtn, cost: getTapPowerCost, currency: () => state.energy },
+  { costEl: el.autoFusionCostVal, btn: el.autoFusionBtn, cost: getAutoFusionCost, currency: () => state.energy },
+  { costEl: el.starlightCostVal, btn: el.starlightBtn, cost: getStarlightCost, currency: () => state.stardust },
+  { costEl: el.quantumCostVal, btn: el.quantumBtn, cost: getQuantumCost, currency: () => state.stardust },
+  { costEl: el.colliderCostVal, btn: el.colliderBtn, cost: getColliderCost, currency: () => state.stardust }
+];
+
+function refreshBuyables(){
+  for(const b of buyables){
+    if(b.maxed && b.maxed()){
+      b.btn.disabled = true;
+      if(b.costEl) b.costEl.textContent = 'MAX';
+      continue;
+    }
+    const cost = b.cost();
+    if(b.costEl) b.costEl.textContent = formatNumber(cost);
+    b.btn.disabled = b.currency() < cost;
+  }
+}
+
+function updateStatsUI(){
+  el.energyVal.textContent = formatNumber(state.energy);
+  el.epsVal.textContent = formatNumber(state.eps) + '/s';
+  el.stardustVal.textContent = formatNumber(state.stardust);
+  el.multVal.textContent = 'x' + getPrestigeMultiplier().toFixed(2);
+  el.clickPowerVal.textContent = formatNumber(state.clickPower);
+  el.critChanceVal.textContent = Math.round(CRIT_CHANCE * 100) + '%';
+
+  el.capacityLevelVal.textContent = getUnlockedSlots() + '/' + GRID_SIZE;
+  el.spawnRateLevelVal.textContent = String(state.upgrades.spawnRate);
+  el.spawnRateIntervalVal.textContent = state.upgrades.spawnRate > 0 ? getAutoSpawnInterval() + 's' : 'off';
+  el.tapPowerLevelVal.textContent = formatNumber(state.clickPower);
+  el.autoFusionLevelVal.textContent = String(state.upgrades.autoFusion);
+  el.autoFusionIntervalVal.textContent = state.upgrades.autoFusion > 0 ? getAutoFusionInterval() + 's' : 'off';
+
+  const lifetimeCapped = Math.min(state.lifetimeEnergy, PRESTIGE_THRESHOLD);
+  el.lifetimeVal.textContent = formatNumber(state.lifetimeEnergy) + ' / ' + formatNumber(PRESTIGE_THRESHOLD);
+  el.lifetimeBar.style.width = Math.min(100, (lifetimeCapped / PRESTIGE_THRESHOLD) * 100) + '%';
+  el.potentialStardustVal.textContent = formatNumber(potentialStardust());
+  el.supernovaBtn.disabled = !canPrestige();
+
+  el.starlightLevelVal.textContent = String(state.talents.starlightEngine);
+  el.starlightEffectVal.textContent = 'x' + getPrestigeMultiplier().toFixed(2);
+  el.quantumLevelVal.textContent = String(state.talents.quantumFusion);
+  el.quantumEffectVal.textContent = Math.round(Math.min(1, 0.05 * state.talents.quantumFusion) * 100) + '%';
+  el.colliderLevelVal.textContent = String(state.talents.autoCollider);
+  el.colliderIntervalVal.textContent = state.talents.autoCollider > 0 ? getAutoColliderInterval() + 's' : 'off';
+
+  refreshBuyables();
+}
+
+/* =========================================================
+   CANVAS: STARS / PARTICLES / ORBITERS
+   ========================================================= */
+let particles = [];
+let orbiterMap = new Map();
+let starsBg = [];
+let lastRafTs = null;
+
+function generateStars(){
+  starsBg = [];
+  for(let i = 0; i < 90; i++){
+    starsBg.push({
+      x: Math.random() * canvas.width,
+      y: Math.random() * canvas.height,
+      r: Math.random() * 1.4 + 0.3,
+      a: Math.random() * 0.6 + 0.15,
+      tw: Math.random() * 2000
+    });
+  }
+}
+
+function getTopOrbiters(){
+  const unlocked = getUnlockedSlots();
+  const list = [];
+  for(let i = 0; i < unlocked; i++){
+    if(state.grid[i]) list.push({ i:i, tier: state.grid[i].tier });
+  }
+  list.sort((a,b) => b.tier - a.tier);
+  return list.slice(0, 8);
+}
+
+function updateOrbiters(){
+  const top = getTopOrbiters();
+  const activeIdxs = new Set(top.map(o => o.i));
+  for(const key of Array.from(orbiterMap.keys())){
+    if(!activeIdxs.has(key)) orbiterMap.delete(key);
+  }
+  top.forEach((o, rank) => {
+    if(!orbiterMap.has(o.i)){
+      const radius = 110 + rank * 24 + (Math.random() * 8 - 4);
+      const speed = (0.16 + Math.random() * 0.12) * (rank % 2 === 0 ? 1 : -1);
+      const angle = Math.random() * Math.PI * 2;
+      orbiterMap.set(o.i, { angle:angle, radius:radius, speed:speed, tier:o.tier });
+    } else {
+      orbiterMap.get(o.i).tier = o.tier;
+    }
+  });
+}
+
+function spawnClickParticles(x, y, isCrit){
+  const count = isCrit ? 22 : 14;
+  for(let i = 0; i < count; i++){
+    const angle = Math.random() * Math.PI * 2;
+    const speed = 80 + Math.random() * 140;
+    particles.push({
+      type:'spark', x:x, y:y,
+      vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+      damping:0.90, gravity:0,
+      life:600, maxLife:600,
+      size: 2 + Math.random() * 3,
+      color: isCrit ? '#fbbf24' : '#22d3ee'
+    });
+  }
+}
+
+function spawnFloatingText(x, y, text, isCrit){
+  particles.push({
+    type:'text', x:x, y:y,
+    vx:0, vy:-42, damping:1, gravity:0,
+    life:900, maxLife:900,
+    size: isCrit ? 20 : 15,
+    color: isCrit ? '#fbbf24' : '#e7e9f5',
+    text: text
+  });
+}
+
+function spawnConfettiAt(cellEl){
+  const colors = ['#22d3ee','#a78bfa','#fbbf24','#ec4899','#34d399'];
+  for(let i = 0; i < 12; i++){
+    const span = document.createElement('span');
+    span.className = 'confetti-piece';
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 26 + Math.random() * 34;
+    span.style.setProperty('--dx', (Math.cos(angle) * dist) + 'px');
+    span.style.setProperty('--dy', (Math.sin(angle) * dist) + 'px');
+    span.style.background = colors[Math.floor(Math.random() * colors.length)];
+    cellEl.appendChild(span);
+    span.addEventListener('animationend', () => { if(span.parentNode) span.parentNode.removeChild(span); });
+  }
+}
+
+function triggerScreenShake(){
+  document.body.classList.add('shake');
+  setTimeout(() => { document.body.classList.remove('shake'); }, 280);
+}
+
+function updateParticles(dt){
+  const dtSec = dt / 1000;
+  for(let i = particles.length - 1; i >= 0; i--){
+    const p = particles[i];
+    p.x += p.vx * dtSec;
+    p.y += p.vy * dtSec;
+    const dampFactor = Math.pow(p.damping, dtSec * 60);
+    p.vx *= dampFactor;
+    p.vy *= dampFactor;
+    if(p.gravity) p.vy += p.gravity * dtSec;
+    p.life -= dt;
+    if(p.life <= 0) particles.splice(i, 1);
+  }
+}
+
+/* =========================================================
+   CANVAS RENDERING
+   ========================================================= */
+function drawBackground(){
+  const cx = canvas.width / 2, cy = canvas.height / 2;
+  const grad = ctx.createRadialGradient(cx, cy * 0.9, 20, cx, cy, canvas.width * 0.75);
+  grad.addColorStop(0, '#141a3d');
+  grad.addColorStop(1, '#05060c');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const now = Date.now();
+  for(const s of starsBg){
+    const twinkle = 0.5 + 0.5 * Math.sin((now + s.tw) / 700);
+    ctx.globalAlpha = s.a * twinkle;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawOrbitRings(cx, cy){
+  const radii = new Set();
+  orbiterMap.forEach(o => radii.add(Math.round(o.radius)));
+  ctx.save();
+  ctx.strokeStyle = 'rgba(150,170,255,0.10)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 7]);
+  radii.forEach(r => {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+  });
+  ctx.restore();
+}
+
+function drawCore(cx, cy){
+  const now = Date.now();
+  const pulse = Math.sin(now / 500) * 4;
+  const baseR = 46 + pulse;
+
+  ctx.save();
+  const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, baseR * 2.2);
+  glow.addColorStop(0, 'rgba(34,211,238,0.35)');
+  glow.addColorStop(1, 'rgba(34,211,238,0)');
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(cx, cy, baseR * 2.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  const core = ctx.createRadialGradient(cx - baseR * 0.3, cy - baseR * 0.3, 2, cx, cy, baseR);
+  core.addColorStop(0, '#e7f9ff');
+  core.addColorStop(0.4, '#22d3ee');
+  core.addColorStop(1, '#7c3aed');
+  ctx.fillStyle = core;
+  ctx.beginPath();
+  ctx.arc(cx, cy, baseR, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(cx, cy, baseR + 6, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawMoon(x, y, tier){
+  const info = getTierInfo(tier);
+  const color = getTierColor(tier);
+  const radius = 9 + Math.min(tier, 10) * 1.3;
+  const now = Date.now();
+
+  ctx.save();
+  const glow = ctx.createRadialGradient(x, y, 0, x, y, radius * 2.4);
+  glow.addColorStop(0, color);
+  glow.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.globalAlpha = 0.35;
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(x, y, radius * 2.4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalAlpha = 1;
+
+  const body = ctx.createRadialGradient(x - radius * 0.3, y - radius * 0.3, 1, x, y, radius);
+  body.addColorStop(0, '#ffffffcc');
+  body.addColorStop(1, color);
+  ctx.fillStyle = body;
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.fill();
+
+  if(tier === 3){
+    const bucket = Math.floor(now / 150);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.2;
+    for(let i = 0; i < 3; i++){
+      const a = hashRand(bucket * 13 + i * 7 + x + y) * Math.PI * 2;
+      const len = 8 + hashRand(bucket + i) * 8;
+      ctx.beginPath();
+      ctx.moveTo(x + Math.cos(a) * radius, y + Math.sin(a) * radius);
+      ctx.lineTo(x + Math.cos(a) * (radius + len), y + Math.sin(a) * (radius + len));
+      ctx.stroke();
+    }
+  }
+
+  if(tier === 4){
+    const phase = (now / 900) % 1;
+    const ringR = radius + phase * 16;
+    ctx.globalAlpha = Math.max(0, 1 - phase);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.arc(x, y, ringR, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();
+}
+
+function drawOrbiters(cx, cy){
+  orbiterMap.forEach(o => {
+    const x = cx + o.radius * Math.cos(o.angle);
+    const y = cy + o.radius * Math.sin(o.angle);
+    drawMoon(x, y, o.tier);
+  });
+}
+
+function drawParticles(){
+  for(const p of particles){
+    const alpha = Math.max(0, p.life / p.maxLife);
+    ctx.globalAlpha = alpha;
+    if(p.type === 'spark'){
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+      ctx.fill();
+    } else if(p.type === 'text'){
+      ctx.fillStyle = p.color;
+      ctx.font = 'bold ' + p.size + 'px "Courier New", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(p.text, p.x, p.y);
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+function renderCanvas(){
+  const cx = canvas.width / 2, cy = canvas.height / 2;
+  drawBackground();
+  drawOrbitRings(cx, cy);
+  drawOrbiters(cx, cy);
+  drawCore(cx, cy);
+  drawParticles();
+}
+
+function rafLoop(ts){
+  if(lastRafTs === null) lastRafTs = ts;
+  const dt = Math.min(50, ts - lastRafTs);
+  lastRafTs = ts;
+
+  const dtSec = dt / 1000;
+  orbiterMap.forEach(o => { o.angle += o.speed * dtSec; });
+
+  updateParticles(dt);
+  renderCanvas();
+  requestAnimationFrame(rafLoop);
+}
+
+/* =========================================================
+   TAP HANDLING
+   ========================================================= */
+function doTap(x, y){
+  const isCrit = Math.random() < CRIT_CHANCE;
+  const amount = state.clickPower * (isCrit ? CRIT_MULT : 1);
+  state.energy += amount;
+  state.lifetimeEnergy += amount;
+  spawnClickParticles(x, y, isCrit);
+  spawnFloatingText(x, y - 10, (isCrit ? 'CRIT! +' : '+') + formatNumber(amount), isCrit);
+  updateStatsUI();
+}
+
+function handleCanvasClick(e){
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const x = (e.clientX - rect.left) * scaleX;
+  const y = (e.clientY - rect.top) * scaleY;
+  const cx = canvas.width / 2, cy = canvas.height / 2;
+  const dist = Math.hypot(x - cx, y - cy);
+  if(dist <= CORE_RADIUS){
+    doTap(x, y);
+  }
+}
+
+/* =========================================================
+   TICKS
+   ========================================================= */
+function logicTick(){
+  const dtSec = 0.1;
+  const eps = computeEPS();
+  state.eps = eps;
+  const gain = eps * dtSec;
+  state.energy += gain;
+  state.lifetimeEnergy += gain;
+  updateStatsUI();
+}
+
+function secondTick(){
+  if(state.upgrades.spawnRate > 0){
+    state.timers.autoSpawn--;
+    if(state.timers.autoSpawn <= 0){
+      attemptAutoSpawn();
+      state.timers.autoSpawn = getAutoSpawnInterval();
+    }
+  }
+  if(state.upgrades.autoFusion > 0){
+    state.timers.autoFusion--;
+    if(state.timers.autoFusion <= 0){
+      attemptAutoFusion();
+      state.timers.autoFusion = getAutoFusionInterval();
+    }
+  }
+  if(state.talents.autoCollider > 0){
+    state.timers.autoCollider--;
+    if(state.timers.autoCollider <= 0){
+      attemptAutoCollider();
+      state.timers.autoCollider = getAutoColliderInterval();
+    }
+  }
+}
+
+/* =========================================================
+   EVENT LISTENERS
+   ========================================================= */
+function attachEventListeners(){
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const target = btn.dataset.tab;
+      document.querySelectorAll('.tab-panel').forEach(p => {
+        p.classList.toggle('active', p.id === 'tab-' + target);
+      });
+    });
+  });
+
+  el.spawnBtn.addEventListener('click', trySpawnMoon);
+  el.capacityBtn.addEventListener('click', buyCapacity);
+  el.spawnRateBtn.addEventListener('click', buySpawnRate);
+  el.tapPowerBtn.addEventListener('click', buyTapPower);
+  el.autoFusionBtn.addEventListener('click', buyAutoFusion);
+  el.starlightBtn.addEventListener('click', buyStarlight);
+  el.quantumBtn.addEventListener('click', buyQuantum);
+  el.colliderBtn.addEventListener('click', buyCollider);
+  el.supernovaBtn.addEventListener('click', triggerSupernovaClick);
+
+  gridEl.addEventListener('click', (e) => {
+    const cell = e.target.closest('.grid-slot');
+    if(!cell) return;
+    handleSlotClick(parseInt(cell.dataset.index, 10));
+  });
+  gridEl.addEventListener('keydown', (e) => {
+    if(e.key !== 'Enter' && e.key !== ' ') return;
+    const cell = e.target.closest('.grid-slot');
+    if(!cell) return;
+    e.preventDefault();
+    handleSlotClick(parseInt(cell.dataset.index, 10));
+  });
+  gridEl.addEventListener('dragstart', (e) => {
+    const cell = e.target.closest('.grid-slot.filled');
+    if(!cell){ e.preventDefault(); return; }
+    dragSourceIndex = parseInt(cell.dataset.index, 10);
+    if(e.dataTransfer){
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', String(dragSourceIndex));
+    }
+  });
+  gridEl.addEventListener('dragover', (e) => {
+    const cell = e.target.closest('.grid-slot');
+    if(cell && !cell.classList.contains('locked')) e.preventDefault();
+  });
+  gridEl.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const cell = e.target.closest('.grid-slot');
+    if(!cell) return;
+    const targetIdx = parseInt(cell.dataset.index, 10);
+    const sourceIdx = dragSourceIndex;
+    dragSourceIndex = null;
+    if(sourceIdx === null || sourceIdx === undefined || targetIdx === sourceIdx) return;
+    if(targetIdx >= getUnlockedSlots()) return;
+    const a = state.grid[sourceIdx];
+    const b = state.grid[targetIdx];
+    if(!a) return;
+    if(b && a.tier === b.tier){
+      mergeAndCelebrate(targetIdx, sourceIdx);
+    } else if(!b){
+      state.grid[targetIdx] = a;
+      state.grid[sourceIdx] = null;
+      selectedSlot = null;
+      renderGrid();
+    }
+  });
+
+  canvas.addEventListener('click', handleCanvasClick);
+  canvas.addEventListener('keydown', (e) => {
+    if(e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    doTap(canvas.width / 2, canvas.height / 2);
+  });
+
+  el.settingsBtn.addEventListener('click', () => openModal(el.settingsModal));
+  el.closeSettingsBtn.addEventListener('click', () => closeModal(el.settingsModal));
+  el.resetProgressBtn.addEventListener('click', resetProgressClick);
+
+  el.confirmYesBtn.addEventListener('click', () => {
+    closeModal(el.confirmModal);
+    const action = pendingConfirmAction;
+    pendingConfirmAction = null;
+    if(action) action();
+  });
+  el.confirmNoBtn.addEventListener('click', () => {
+    closeModal(el.confirmModal);
+    pendingConfirmAction = null;
+  });
+
+  el.closeWelcomeBtn.addEventListener('click', () => {
+    closeModal(el.welcomeModal);
+    updateStatsUI();
+  });
+
+  window.addEventListener('beforeunload', saveState);
+}
+
+/* =========================================================
+   INIT
+   ========================================================= */
+function init(){
+  generateStars();
+  applyOfflineEarnings();
+  updateOrbiters();
+  renderGrid();
+  updateStatsUI();
+  attachEventListeners();
+  requestAnimationFrame(rafLoop);
+  setInterval(logicTick, 100);
+  setInterval(secondTick, 1000);
+  setInterval(() => { updateOrbiters(); }, 1000);
+  setInterval(saveState, 5000);
+}
+
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0e1116">
+<title>Focus Flow — Interactive Ambient Soundscape & Study Timer</title>
+<style>
+  :root{
+    --bg-a:#0b1016; --bg-b:#172026; --bg-c:#22332f;
+    --surface:rgba(15,20,26,.74); --surface-strong:rgba(18,24,31,.92);
+    --border:rgba(255,255,255,.09); --text:#eef3f1; --muted:#98a6a8; --soft:#c7d0ce;
+    --accent:#91d7c2; --accent-2:#b9eadb; --ring:#a7decd; --shadow:0 24px 70px rgba(0,0,0,.28);
+    --radius:24px; --radius-sm:16px; --motion:1;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  html{min-height:100%;background:#0b1016}
+  body{margin:0;min-height:100vh;color:var(--text);background:
+    radial-gradient(1200px 700px at 15% -5%, color-mix(in srgb,var(--bg-c) 75%,transparent), transparent 63%),
+    radial-gradient(1000px 700px at 85% 105%, color-mix(in srgb,var(--bg-b) 76%,transparent), transparent 64%),
+    linear-gradient(135deg,var(--bg-a),var(--bg-b) 48%,var(--bg-c));
+    background-attachment:fixed;transition:background .9s ease;overflow-x:hidden}
+  body::before{content:"";position:fixed;inset:0;pointer-events:none;opacity:.23;background-image:
+    radial-gradient(circle at 20% 20%,rgba(255,255,255,.04) 0 1px,transparent 1.2px),
+    radial-gradient(circle at 70% 60%,rgba(255,255,255,.03) 0 1px,transparent 1.2px);background-size:44px 44px,58px 58px;mix-blend-mode:soft-light}
+  button,input{font:inherit}
+  button{border:0}
+  .shell{width:min(1180px,calc(100% - 32px));margin:0 auto;padding:28px 0 44px;position:relative}
+  header{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin:6px 0 28px}
+  .brand{display:flex;align-items:center;gap:14px}
+  .brand-mark{width:46px;height:46px;border-radius:15px;display:grid;place-items:center;background:linear-gradient(135deg,rgba(255,255,255,.12),rgba(255,255,255,.04));border:1px solid var(--border);box-shadow:inset 0 1px 0 rgba(255,255,255,.06)}
+  .brand-mark svg{width:25px;height:25px;opacity:.92}
+  .eyebrow{font-size:.7rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+  h1{font-size:clamp(1.55rem,3vw,2.1rem);line-height:1.05;margin:0;font-weight:680;letter-spacing:-.025em}
+  .header-note{color:var(--muted);font-size:.9rem;max-width:380px;line-height:1.5;text-align:right}
+  .grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(330px,.75fr);gap:18px}
+  .card{background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.02)),var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+  .card.pad{padding:22px}
+  .section-head{display:flex;justify-content:space-between;gap:16px;align-items:center;margin-bottom:18px}
+  .section-head h2{font-size:.95rem;margin:0;font-weight:650;letter-spacing:.01em}
+  .section-head p{font-size:.78rem;color:var(--muted);margin:5px 0 0}
+  .mix-list{display:grid;gap:10px}
+  .channel{display:grid;grid-template-columns:auto minmax(140px,1fr) auto auto;align-items:center;gap:13px;padding:13px 14px;border:1px solid rgba(255,255,255,.065);border-radius:18px;background:rgba(255,255,255,.025);transition:transform .25s ease,border-color .25s ease,background .25s ease}
+  .channel:hover{transform:translateY(-1px);border-color:rgba(255,255,255,.12);background:rgba(255,255,255,.036)}
+  .channel.is-active{border-color:color-mix(in srgb,var(--accent) 40%, transparent);background:color-mix(in srgb,var(--accent) 7%, transparent)}
+  .icon{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;background:rgba(255,255,255,.055);color:var(--accent-2);flex:none}
+  .icon svg{width:18px;height:18px}
+  .channel-main{min-width:0}
+  .channel-name{font-size:.88rem;font-weight:600;margin-bottom:6px}
+  .channel-sub{font-size:.72rem;color:var(--muted)}
+  .range-wrap{display:grid;grid-template-columns:1fr 48px;gap:10px;align-items:center;min-width:0}
+  input[type=range]{appearance:none;width:100%;height:22px;background:transparent;cursor:pointer}
+  input[type=range]::-webkit-slider-runnable-track{height:5px;border-radius:999px;background:linear-gradient(90deg,var(--accent) 0 var(--fill,50%),rgba(255,255,255,.11) var(--fill,50%) 100%)}
+  input[type=range]::-moz-range-track{height:5px;border-radius:999px;background:rgba(255,255,255,.11)}
+  input[type=range]::-moz-range-progress{height:5px;border-radius:999px;background:var(--accent)}
+  input[type=range]::-webkit-slider-thumb{appearance:none;width:18px;height:18px;margin-top:-6.5px;border-radius:50%;background:#e9f4f0;border:3px solid color-mix(in srgb,var(--accent) 70%,white);box-shadow:0 3px 12px rgba(0,0,0,.3)}
+  input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:#e9f4f0;border:3px solid color-mix(in srgb,var(--accent) 70%,white);box-shadow:0 3px 12px rgba(0,0,0,.3)}
+  .value{font-variant-numeric:tabular-nums;font-size:.72rem;color:var(--soft);text-align:right}
+  .mute{width:36px;height:36px;border-radius:12px;background:rgba(255,255,255,.045);border:1px solid transparent;color:var(--soft);display:grid;place-items:center;cursor:pointer;transition:.2s ease}
+  .mute:hover,.mute:focus-visible{border-color:rgba(255,255,255,.14);background:rgba(255,255,255,.07);outline:none}
+  .mute[aria-pressed=true]{color:var(--accent-2);background:color-mix(in srgb,var(--accent) 12%,transparent);border-color:color-mix(in srgb,var(--accent) 24%,transparent)}
+  .mix-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;padding-top:14px;margin-top:6px;border-top:1px solid rgba(255,255,255,.06)}
+  .status{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:.75rem}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 5px color-mix(in srgb,var(--accent) 10%,transparent)}
+  .btn-row{display:flex;gap:8px;flex-wrap:wrap}
+  .btn{min-height:38px;padding:0 13px;border-radius:12px;color:var(--soft);background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.08);cursor:pointer;font-size:.75rem;font-weight:620;letter-spacing:.005em;transition:.2s ease}
+  .btn:hover,.btn:focus-visible{background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.16);transform:translateY(-1px);outline:none}
+  .btn.primary{background:var(--accent);color:#10201c;border-color:transparent;box-shadow:0 8px 24px color-mix(in srgb,var(--accent) 23%,transparent)}
+  .btn.primary:hover,.btn.primary:focus-visible{background:var(--accent-2)}
+  .btn.ghost{background:transparent}
+  .timer-card{display:flex;flex-direction:column;min-height:100%}
+  .phase-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+  .phase-pill{display:inline-flex;align-items:center;gap:8px;padding:7px 10px;border-radius:999px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);font-size:.72rem;font-weight:650}
+  .phase-icon{width:7px;height:7px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 10%,transparent)}
+  .cycle-count{font-size:.72rem;color:var(--muted)}
+  .ring-wrap{position:relative;display:grid;place-items:center;margin:20px auto 14px;width:min(100%,310px);aspect-ratio:1}
+  .ring-wrap::after{content:"";position:absolute;inset:18%;border-radius:50%;box-shadow:0 0 100px color-mix(in srgb,var(--accent) 11%,transparent);pointer-events:none}
+  .ring{width:100%;height:100%;transform:rotate(-90deg);overflow:visible}
+  .ring-track{fill:none;stroke:rgba(255,255,255,.075);stroke-width:8}
+  .ring-progress{fill:none;stroke:var(--ring);stroke-width:8;stroke-linecap:round;filter:drop-shadow(0 0 10px color-mix(in srgb,var(--ring) 24%,transparent));transition:stroke-dashoffset .15s linear,stroke .35s ease}
+  .timer-center{position:absolute;text-align:center;z-index:2}
+  .time{font-size:clamp(3.5rem,7vw,5rem);font-weight:680;letter-spacing:-.055em;line-height:.95;font-variant-numeric:tabular-nums}
+  .time-label{font-size:.73rem;color:var(--muted);margin-top:10px;letter-spacing:.06em;text-transform:uppercase}
+  .timer-controls{display:flex;justify-content:center;gap:9px;margin-bottom:18px}
+  .circle-btn{width:48px;height:48px;border-radius:15px;background:rgba(255,255,255,.055);color:var(--soft);border:1px solid rgba(255,255,255,.08);display:grid;place-items:center;cursor:pointer;transition:.2s ease}
+  .circle-btn:hover,.circle-btn:focus-visible{background:rgba(255,255,255,.09);transform:translateY(-1px);outline:none}
+  .circle-btn.main{width:58px;height:58px;border-radius:18px;background:var(--accent);color:#10201c;border-color:transparent;box-shadow:0 10px 26px color-mix(in srgb,var(--accent) 24%,transparent)}
+  .circle-btn.main:hover,.circle-btn.main:focus-visible{background:var(--accent-2)}
+  .settings-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:auto}
+  .field{display:grid;gap:6px}
+  .field label{font-size:.7rem;color:var(--muted)}
+  .input{width:100%;height:40px;border-radius:12px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.045);color:var(--text);padding:0 11px;outline:none}
+  .input:focus{border-color:color-mix(in srgb,var(--accent) 50%,white);box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 10%,transparent)}
+  .lower{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:18px}
+  .presets{min-height:175px}
+  .preset-list{display:grid;gap:8px;margin-top:14px;max-height:190px;overflow:auto;padding-right:2px}
+  .preset{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 11px;border:1px solid rgba(255,255,255,.065);border-radius:13px;background:rgba(255,255,255,.025)}
+  .preset-name{font-size:.77rem;color:var(--soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .preset-actions{display:flex;gap:5px}
+  .mini-btn{height:30px;padding:0 9px;border-radius:9px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);color:var(--muted);font-size:.68rem;cursor:pointer}
+  .mini-btn:hover,.mini-btn:focus-visible{color:var(--text);background:rgba(255,255,255,.085);outline:none}
+  .stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+  .stat{padding:15px;border:1px solid rgba(255,255,255,.065);border-radius:15px;background:rgba(255,255,255,.025)}
+  .stat-label{color:var(--muted);font-size:.7rem;margin-bottom:7px}
+  .stat-value{font-size:1.6rem;font-weight:680;font-variant-numeric:tabular-nums;letter-spacing:-.03em}
+  .empty{font-size:.74rem;color:var(--muted);padding:12px 2px}
+  .notice{font-size:.7rem;color:var(--muted);line-height:1.45;margin-top:12px}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,18px);opacity:0;pointer-events:none;padding:11px 14px;border-radius:12px;background:rgba(13,17,22,.94);border:1px solid rgba(255,255,255,.1);box-shadow:0 16px 45px rgba(0,0,0,.32);font-size:.74rem;color:var(--soft);transition:.25s ease;z-index:40}
+  .toast.show{opacity:1;transform:translate(-50%,0)}
+  :focus-visible{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
+  @media (max-width:900px){.grid,.lower{grid-template-columns:1fr}.timer-card{min-height:auto}.header-note{display:none}.ring-wrap{width:min(100%,290px)}}
+  @media (max-width:620px){.shell{width:min(100% - 20px,1180px);padding-top:18px}.card.pad{padding:16px}.channel{grid-template-columns:auto minmax(0,1fr) auto}.channel .range-wrap{grid-column:2 / -1}.mute{grid-column:3;grid-row:1}.settings-grid{grid-template-columns:1fr 1fr}.time{font-size:4rem}.brand-mark{width:42px;height:42px}.ring-wrap{width:min(86vw,290px)}}
+  @media (prefers-reduced-motion:reduce){:root{--motion:0}*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}.ring-progress{transition:none}.brand-mark{box-shadow:none}}
+</style>
+</head>
+<body>
+<main class="shell" id="app">
+  <header>
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 15.5c2.2-4.7 5.2-7 8.1-7 2.4 0 4.3 1.1 7.9 4.7M4 19c2.4-3.4 4.7-5.1 7.2-5.1 2.2 0 4.1 1 6.8 3.4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="7" cy="7" r="1.2" fill="currentColor"/><circle cx="16.7" cy="6.7" r="1.2" fill="currentColor"/></svg>
+      </div>
+      <div><div class="eyebrow">Interactive ambient workspace</div><h1>Focus Flow</h1></div>
+    </div>
+    <div class="header-note">Blend procedural ambience, settle into a focused cycle, and let the session quietly accumulate.</div>
+  </header>
+
+  <div class="grid">
+    <section class="card pad" aria-labelledby="mixer-title">
+      <div class="section-head">
+        <div><h2 id="mixer-title">Soundscape</h2><p>Each layer is synthesized live. No audio files or network requests.</p></div>
+        <div class="status" id="audio-status"><span class="dot"></span><span>Idle — start when ready</span></div>
+      </div>
+      <div class="mix-list" id="mix-list"></div>
+      <div class="mix-footer">
+        <div class="status"><span id="dominant-label">Dominant: none</span></div>
+        <div class="btn-row"><button class="btn ghost" id="silence-btn" type="button">Silence</button><button class="btn" id="reset-mix-btn" type="button">Reset mix</button></div>
+      </div>
+    </section>
+
+    <section class="card pad timer-card" aria-labelledby="timer-title">
+      <div class="section-head"><div><h2 id="timer-title">Focus cycle</h2><p>25 min focus · 5 min break by default</p></div></div>
+      <div class="phase-row"><div class="phase-pill" id="phase-pill"><span class="phase-icon"></span><span id="phase-text">Focus</span></div><div class="cycle-count" id="cycle-count">Cycle 1</div></div>
+      <div class="ring-wrap" aria-label="Timer progress">
+        <svg class="ring" viewBox="0 0 240 240" aria-hidden="true">
+          <circle class="ring-track" cx="120" cy="120" r="100"></circle>
+          <circle class="ring-progress" id="ring-progress" cx="120" cy="120" r="100"></circle>
+        </svg>
+        <div class="timer-center"><div class="time" id="time-display">25:00</div><div class="time-label" id="time-label">Ready to focus</div></div>
+      </div>
+      <div class="timer-controls" aria-label="Timer controls">
+        <button class="circle-btn" id="reset-timer" type="button" aria-label="Reset timer" title="Reset timer">↺</button>
+        <button class="circle-btn main" id="start-timer" type="button" aria-label="Start timer" title="Start or pause timer">▶</button>
+        <button class="circle-btn" id="skip-phase" type="button" aria-label="Skip to next phase" title="Skip phase">↠</button>
+      </div>
+      <div class="settings-grid">
+        <div class="field"><label for="work-min">Focus minutes</label><input class="input" id="work-min" type="number" inputmode="numeric" min="1" max="180" step="1" value="25" aria-label="Focus duration in minutes"></div>
+        <div class="field"><label for="break-min">Break minutes</label><input class="input" id="break-min" type="number" inputmode="numeric" min="1" max="60" step="1" value="5" aria-label="Break duration in minutes"></div>
+      </div>
+      <div class="notice">The timer uses a monotonic end-time calculation rather than decrementing a counter, preventing visible drift when the browser throttles background work.</div>
+    </section>
+  </div>
+
+  <div class="lower">
+    <section class="card pad presets" aria-labelledby="presets-title">
+      <div class="section-head"><div><h2 id="presets-title">Presets</h2><p>Save a precise blend of channel gains and mute state.</p></div><button class="btn primary" id="save-preset" type="button">Save preset</button></div>
+      <div class="preset-list" id="preset-list"></div>
+    </section>
+    <section class="card pad" aria-labelledby="stats-title">
+      <div class="section-head"><div><h2 id="stats-title">Today</h2><p>Focus progress persists locally and rolls over at local midnight.</p></div></div>
+      <div class="stats"><div class="stat"><div class="stat-label">Focus minutes</div><div class="stat-value" id="focus-minutes">0</div></div><div class="stat"><div class="stat-label">Daily streak</div><div class="stat-value" id="streak-value">0 days</div></div></div>
+      <div class="notice">A streak advances when at least one focus session is completed on a local-calendar day.</div>
+    </section>
+  </div>
+</main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  const STORAGE = {
+    mixer: 'focus-flow:mixer:v1', presets: 'focus-flow:presets:v1',
+    timer: 'focus-flow:timer:v1', stats: 'focus-flow:stats:v1'
+  };
+  const DEFAULTS = { work:25, break:5, streakThreshold:1 };
+  const CHANNELS = [
+    { id:'rain', name:'Rain', sub:'Filtered broadband + droplet modulation', icon:'rain' },
+    { id:'fire', name:'Crackling fire', sub:'Low-pass bed + short stochastic pops', icon:'fire' },
+    { id:'coffee', name:'Coffee shop', sub:'Warm murmur + soft percussive impulses', icon:'coffee' },
+    { id:'crickets', name:'Night crickets', sub:'Ambient bed + randomized chirps', icon:'crickets' },
+    { id:'white', name:'White noise', sub:'Raw wideband noise floor', icon:'white' }
+  ];
+  const DEFAULT_GAINS = { rain:.52, fire:.32, coffee:.28, crickets:.22, white:.13 };
+
+  const $ = (sel) => document.querySelector(sel);
+  const $$ = (sel) => [...document.querySelectorAll(sel)];
+  const clamp = (n,min,max) => Math.max(min,Math.min(max,n));
+  const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+  const fmtTime = (sec) => { const s=Math.max(0,Math.ceil(sec)); return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; };
+  const safeParse = (key,fallback) => { try { const raw=localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; } catch { return fallback; } };
+  const saveJSON = (key,val) => { try { localStorage.setItem(key,JSON.stringify(val)); } catch(e) { console.warn('Persistence unavailable',e); } };
+
+  const Icons = {
+    rain:'<svg viewBox="0 0 24 24" fill="none"><path d="M7 17.5 5.8 20M12 17.5 10.8 20M17 17.5 15.8 20M4.8 14.2c-.3-4 2.7-6.8 6.6-6.6 1.1-2.6 4.5-4 7.2-2.2 2.1 1.4 2.8 4 1.8 6.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+    fire:'<svg viewBox="0 0 24 24" fill="none"><path d="M13.5 4.8c.4 2.4-.5 3.8-1.9 5.3-1.2 1.3-2 2.5-1.9 4.3.1 2.2 1.8 3.6 4 3.6 2.8 0 4.8-2.1 4.8-4.9 0-2.7-1.7-5.7-4.2-8.1.1 1.3-.1 2.2-.8 3.1-.1-1.2-.1-2-.0-3.3Z" stroke="currentColor" stroke-width="1.45" stroke-linejoin="round"/><path d="M6.9 12.6c-1.1 1.1-1.7 2.3-1.7 3.8 0 2.7 2 4.6 4.6 4.6" stroke="currentColor" stroke-width="1.45" stroke-linecap="round"/></svg>',
+    coffee:'<svg viewBox="0 0 24 24" fill="none"><path d="M6 8.5h10.3v5.1c0 3-2.1 5-5.2 5H11c-3 0-5-2-5-5V8.5ZM16.3 10h1.5c1.6 0 2.7 1 2.7 2.3s-1.1 2.4-2.7 2.4h-1.6" stroke="currentColor" stroke-width="1.45" stroke-linecap="round"/><path d="M8 5c.3-.8.8-1.4 1.5-2M11 5c.3-.8.8-1.4 1.5-2M14 5c.3-.8.8-1.4 1.5-2" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"/></svg>',
+    crickets:'<svg viewBox="0 0 24 24" fill="none"><path d="M5 15.5h4M7 11.5h5M14 15.5h5M13 8.5h4" stroke="currentColor" stroke-width="1.45" stroke-linecap="round"/><path d="M4 18c2.4-2.2 4.8-2.2 7.2 0M12.8 18c2.4-2.2 4.8-2.2 7.2 0" stroke="currentColor" stroke-width="1.15" stroke-linecap="round"/></svg>',
+    white:'<svg viewBox="0 0 24 24" fill="none"><path d="M4 12h2m2.5 0h2m2.5 0h2m2.5 0H20M5.3 8.3l1.4 1.4m10.6 0 1.4-1.4M8.2 5.5 9.5 7M14.5 17l1.3 1.5M18.7 15.7l-1.4-1.4M7.7 15.7l-1.4 1.4M12 4v2M12 18v2" stroke="currentColor" stroke-width="1.45" stroke-linecap="round"/></svg>'
+  };
+
+  // ------------------------------------------------------------
+  // AudioEngine: one reusable AudioContext. Every channel owns a
+  // GainNode so the mixer can change levels without rebuilding audio.
+  // ------------------------------------------------------------
+  class AudioEngine {
+    constructor(){ this.ctx=null; this.master=null; this.channels={}; this.started=false; this.raf=0; this.gains={...DEFAULT_GAINS}; this.muted={rain:false,fire:false,coffee:false,crickets:false,white:false}; }
+    async ensure(){
+      if(!this.ctx){ this.ctx=new (window.AudioContext||window.webkitAudioContext)(); this.master=this.ctx.createGain(); this.master.gain.value=.72; this.master.connect(this.ctx.destination); this.build(); }
+      if(this.ctx.state==='suspended') await this.ctx.resume();
+      if(!this.started){ this.started=true; $('#audio-status').innerHTML='<span class="dot"></span><span>Live — procedural audio</span>'; }
+    }
+    noiseBuffer(seconds=3, color='white'){
+      const len=Math.max(1,Math.floor(this.ctx.sampleRate*seconds)); const buf=this.ctx.createBuffer(1,len,this.ctx.sampleRate), data=buf.getChannelData(0);
+      let last=0;
+      for(let i=0;i<len;i++){
+        const white=(Math.random()*2-1);
+        // Pink/brown approximation: recursively smooth random noise; this is inexpensive and loop-safe.
+        if(color==='pink'){ last=.985*last+.15*white; data[i]=last*.7+white*.3; }
+        else if(color==='brown'){ last=(last+.02*white)*.998; data[i]=last*3.5; }
+        else data[i]=white;
+      }
+      return buf;
+    }
+    makeLoop(buffer){ const s=this.ctx.createBufferSource(); s.buffer=buffer; s.loop=true; s.start(); return s; }
+    build(){
+      const c=this.ctx;
+      // White noise: raw wideband samples give the neutral, frequency-flat layer.
+      this.channels.white=this.buildNoiseChannel(this.noiseBuffer(3,'white'), null, 1.0);
+      // Rain: high-passed noise removes rumble; slow amplitude modulation makes energy vary like droplets.
+      this.channels.rain=this.buildNoiseChannel(this.noiseBuffer(3,'white'), 'highpass', 0.95);
+      const rainLfo=c.createOscillator(), rainLfoGain=c.createGain(); rainLfo.frequency.value=.31; rainLfoGain.gain.value=.17;
+      rainLfo.connect(rainLfoGain); rainLfoGain.connect(this.channels.rain.gain); rainLfo.start(); this.channels.rain._lfo=rainLfo;
+      // Fire: warm low-pass noise forms the bed; short one-shot noise bursts are scheduled as crackle envelopes.
+      this.channels.fire=this.buildNoiseChannel(this.noiseBuffer(3,'brown'), 'lowpass', .62, 1150);
+      this.scheduleCrackles();
+      // Coffee shop: pink noise gives a soft crowd-like spectrum; impulses add spatial texture without samples.
+      this.channels.coffee=this.buildNoiseChannel(this.noiseBuffer(3,'pink'), 'lowpass', .55, 1700);
+      this.scheduleCoffee();
+      // Crickets: a quiet filtered bed plus independent oscillator chirps keeps CPU low and avoids canned audio.
+      this.channels.crickets=this.buildNoiseChannel(this.noiseBuffer(3,'pink'), 'bandpass', .32, 2400);
+      this.scheduleCrickets();
+      Object.keys(this.channels).forEach(id=>this.applyGain(id));
+    }
+    buildNoiseChannel(buffer, filterType, amount, freq){ const c=this.ctx, source=this.makeLoop(buffer), gain=c.createGain(); gain.gain.value=amount; let node=source;
+      if(filterType){ const f=c.createBiquadFilter(); f.type=filterType; f.frequency.value=freq || (filterType==='highpass'?650:filterType==='lowpass'?1300:1800); f.Q.value=.7; node.connect(f); node=f; }
+      node.connect(gain); gain.connect(this.master); return gain; }
+    scheduleCrackles(){ const loop=()=>{ if(!this.ctx)return; const delay=.18+Math.random()*1.5; setTimeout(()=>{ if(this.ctx?.state==='running'){ const b=this.noiseBuffer(.035,'white'),s=this.ctx.createBufferSource(),g=this.ctx.createGain(),f=this.ctx.createBiquadFilter(); s.buffer=b; f.type='bandpass'; f.frequency.value=700+Math.random()*3600; f.Q.value=1.3; g.gain.setValueAtTime(.0001,this.ctx.currentTime); g.gain.exponentialRampToValueAtTime(.11+Math.random()*.2,this.ctx.currentTime+.002); g.gain.exponentialRampToValueAtTime(.0001,this.ctx.currentTime+.035); s.connect(f); f.connect(g); g.connect(this.master); s.start(); s.stop(this.ctx.currentTime+.05); } loop(); },delay); }; loop(); }
+    scheduleCoffee(){ const loop=()=>{ const delay=1.8+Math.random()*4.6; setTimeout(()=>{ if(this.ctx?.state==='running'){ const b=this.noiseBuffer(.08,'white'),s=this.ctx.createBufferSource(),g=this.ctx.createGain(),f=this.ctx.createBiquadFilter(); s.buffer=b; f.type='bandpass'; f.frequency.value=420+Math.random()*1000; f.Q.value=.7; const now=this.ctx.currentTime; g.gain.setValueAtTime(.0001,now); g.gain.exponentialRampToValueAtTime(.035+Math.random()*.06,now+.01); g.gain.exponentialRampToValueAtTime(.0001,now+.07); s.connect(f); f.connect(g); g.connect(this.master); s.start(); s.stop(now+.09); } loop(); },delay); }; loop(); }
+    scheduleCrickets(){ const loop=()=>{ const delay=.7+Math.random()*2.8; setTimeout(()=>{ if(this.ctx?.state==='running'){ const now=this.ctx.currentTime; const osc=this.ctx.createOscillator(),f=this.ctx.createBiquadFilter(),g=this.ctx.createGain(); osc.type='sine'; osc.frequency.setValueAtTime(3000+Math.random()*900,now); osc.frequency.exponentialRampToValueAtTime(2200+Math.random()*500,now+.10+Math.random()*.07); f.type='bandpass'; f.frequency.value=3000; f.Q.value=11; g.gain.setValueAtTime(.0001,now); g.gain.exponentialRampToValueAtTime(.025+Math.random()*.025,now+.012); g.gain.exponentialRampToValueAtTime(.0001,now+.13); osc.connect(f); f.connect(g); g.connect(this.master); osc.start(); osc.stop(now+.15); } loop(); },delay); }; loop(); }
+    async setGain(id,value){ await this.ensure(); this.gains[id]=clamp(Number(value),0,1); this.applyGain(id); }
+    applyGain(id){ const ch=this.channels[id]; if(!ch)return; ch.gain.value=this.muted[id]?0:this.gains[id]; }
+    async toggleMute(id){ await this.ensure(); this.muted[id]=!this.muted[id]; this.applyGain(id); return this.muted[id]; }
+    async silence(on=true){ await this.ensure(); this.master.gain.setTargetAtTime(on?0:.72,this.ctx.currentTime,.045); }
+  }
+
+  // ------------------------------------------------------------
+  // TimerEngine: stores a target end time and calculates remaining
+  // time from Date.now(), so timer output does not accumulate drift.
+  // ------------------------------------------------------------
+  class TimerEngine {
+    constructor(onChange,onComplete){ this.phase='focus'; this.running=false; this.cycle=1; this.remaining=DEFAULTS.work*60; this.endAt=0; this.handle=0; this.onChange=onChange; this.onComplete=onComplete; this.workMin=DEFAULTS.work; this.breakMin=DEFAULTS.break; this.load(); }
+    durationFor(phase){ return (phase==='focus'?this.workMin:this.breakMin)*60; }
+    load(){ const s=safeParse(STORAGE.timer,null); if(s){ this.phase=s.phase||'focus'; this.running=false; this.cycle=Math.max(1,Number(s.cycle)||1); this.workMin=clamp(Number(s.workMin)||DEFAULTS.work,1,180); this.breakMin=clamp(Number(s.breakMin)||DEFAULTS.break,1,60); this.remaining=this.durationFor(this.phase); $('#work-min').value=this.workMin; $('#break-min').value=this.breakMin; } }
+    save(){ saveJSON(STORAGE.timer,{phase:this.phase,cycle:this.cycle,workMin:this.workMin,breakMin:this.breakMin}); }
+    setDurations(work,brk){ this.workMin=clamp(Math.round(work)||DEFAULTS.work,1,180); this.breakMin=clamp(Math.round(brk)||DEFAULTS.break,1,60); if(!this.running)this.remaining=this.durationFor(this.phase); this.save(); this.emit(); }
+    start(){ if(this.running)return this.pause(); this.running=true; this.endAt=Date.now()+this.remaining*1000; this.tick(); this.emit(); }
+    pause(){ if(!this.running)return; this.remaining=Math.max(0,(this.endAt-Date.now())/1000); this.running=false; cancelAnimationFrame(this.handle); this.save(); this.emit(); }
+    reset(){ this.running=false; cancelAnimationFrame(this.handle); this.remaining=this.durationFor(this.phase); this.save(); this.emit(); }
+    skip(){ this.completePhase(true); }
+    tick(){ if(!this.running)return; this.remaining=Math.max(0,(this.endAt-Date.now())/1000); if(this.remaining<=0){ this.completePhase(false); return; } this.emit(false); this.handle=requestAnimationFrame(()=>this.tick()); }
+    completePhase(skipped){ this.running=false; cancelAnimationFrame(this.handle); const old=this.phase; if(old==='focus'&&!skipped)this.onComplete?.(this.workMin); this.phase=old==='focus'?'break':'focus'; if(old==='break')this.cycle+=1; this.remaining=this.durationFor(this.phase); this.save(); this.emit(); if(!skipped) toast(old==='focus'?'Focus complete — break time.':'Break complete — focus time.'); }
+    emit(persist=true){ this.onChange?.(this); if(persist)this.save(); }
+  }
+
+  // PresetManager serializes only the sound mix, keeping presets portable and small.
+  class PresetManager {
+    constructor(){ this.items=safeParse(STORAGE.presets,[]); if(!Array.isArray(this.items))this.items=[]; this.render(); }
+    save(name,audio){ const clean=name.trim().slice(0,48); if(!clean)return false; this.items=this.items.filter(p=>p.name!==clean); this.items.unshift({name:clean,gains:{...audio.gains},muted:{...audio.muted},createdAt:Date.now()}); this.items=this.items.slice(0,18); saveJSON(STORAGE.presets,this.items); this.render(); return true; }
+    load(index,audio){ const p=this.items[index]; if(!p)return; CHANNELS.forEach(c=>{ audio.gains[c.id]=clamp(Number(p.gains?.[c.id]??0),0,1); audio.muted[c.id]=Boolean(p.muted?.[c.id]); }); renderMixer(); audio.ensure().then(()=>CHANNELS.forEach(c=>audio.applyGain(c.id))); toast(`Loaded “${p.name}”`); }
+    remove(index){ if(!this.items[index])return; const name=this.items[index].name; this.items.splice(index,1); saveJSON(STORAGE.presets,this.items); this.render(); toast(`Deleted “${name}”`); }
+    render(){ const el=$('#preset-list'); el.innerHTML=''; if(!this.items.length){el.innerHTML='<div class="empty">No saved blends yet. Set your layers, then save a preset.</div>';return;} this.items.forEach((p,i)=>{ const row=document.createElement('div'); row.className='preset'; row.innerHTML=`<div class="preset-name" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</div><div class="preset-actions"><button class="mini-btn" data-load="${i}" type="button">Load</button><button class="mini-btn" data-delete="${i}" type="button" aria-label="Delete preset ${escapeHtml(p.name)}">Delete</button></div>`; el.appendChild(row); }); }
+  }
+
+  // StatsTracker evaluates calendar continuity using local YYYY-MM-DD keys.
+  class StatsTracker {
+    constructor(){ this.state=safeParse(STORAGE.stats,{days:{},streak:0,lastActiveDate:null}); this.rollover(); this.render(); }
+    rollover(){ const today=todayKey(); if(this.state.lastActiveDate && this.state.lastActiveDate!==today){ const prev=this.dateOffset(today,-1); if(!this.state.days?.[prev]?.completed) this.state.streak=0; } this.state.days ||= {}; this.state.days[today] ||= {minutes:0,completed:0}; saveJSON(STORAGE.stats,this.state); }
+    dateOffset(key,delta){ const [y,m,d]=key.split('-').map(Number); const dt=new Date(y,m-1,d); dt.setDate(dt.getDate()+delta); return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`; }
+    completedFocus(minutes){ this.rollover(); const today=todayKey(); this.state.days[today].minutes+=minutes; this.state.days[today].completed+=1; const prev=this.dateOffset(today,-1); if(this.state.lastActiveDate===prev)this.state.streak+=1; else if(this.state.lastActiveDate!==today)this.state.streak=1; this.state.lastActiveDate=today; saveJSON(STORAGE.stats,this.state); this.render(); }
+    render(){ const today=todayKey(), d=this.state.days?.[today]||{minutes:0}; $('#focus-minutes').textContent=Math.round(d.minutes); $('#streak-value').textContent=`${this.state.streak||0} day${this.state.streak===1?'':'s'}`; }
+  }
+
+  // ThemeController maps two independent signals into composable CSS tokens.
+  class ThemeController {
+    apply(audio,timer){
+      const active=CHANNELS.filter(c=>!audio.muted[c.id]&&audio.gains[c.id]>.01); const dominant=active.sort((a,b)=>audio.gains[b.id]-audio.gains[a.id])[0]?.id||'none';
+      const palettes={
+        rain:{focus:['#0a1118','#16242c','#1e332e'],break:['#0d141a','#213038','#26342f']},
+        fire:{focus:['#140e0d','#281715','#35281e'],break:['#130f10','#2b1e1a','#2e2620']},
+        coffee:{focus:['#11100f','#22211d','#2a2720'],break:['#131210','#25241f','#2e2a22']},
+        crickets:{focus:['#0a0f18','#121b2a','#1a2b2c'],break:['#0b1019','#172231','#1d2b2c']},
+        white:{focus:['#0d1118','#1b232b','#202b2a'],break:['#0f1217','#20252c','#242a2c']},
+        none:{focus:['#0b1016','#172026','#22332f'],break:['#0c1117','#1c252a','#27312e']}
+      };
+      const [a,b,c]=palettes[dominant]?.[timer.phase]||palettes.none[timer.phase]; const r=document.documentElement; r.style.setProperty('--bg-a',a);r.style.setProperty('--bg-b',b);r.style.setProperty('--bg-c',c); $('#dominant-label').textContent=`Dominant: ${dominant==='none'?'none':CHANNELS.find(x=>x.id===dominant).name}`;
+      $('#phase-text').textContent=timer.phase==='focus'?'Focus mode':'Break mode'; $('#time-label').textContent=timer.running?(timer.phase==='focus'?'In the zone':'Recharge quietly'):(timer.phase==='focus'?'Ready to focus':'Break ready'); $('#cycle-count').textContent=`Cycle ${timer.cycle}`;
+      document.title=`${fmtTime(timer.remaining)} · ${timer.phase==='focus'?'Focus':'Break'} — Focus Flow`;
+    }
+  }
+
+  function escapeHtml(v){ return String(v).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\'':'&#39;','"':'&quot;'}[c])); }
+  let toastHandle=0; function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(toastHandle); toastHandle=setTimeout(()=>t.classList.remove('show'),1800); }
+
+  const audio=new AudioEngine();
+  const theme=new ThemeController();
+  let stats=new StatsTracker();
+  let presets=new PresetManager();
+
+  function renderMixer(){
+    const list=$('#mix-list'); list.innerHTML='';
+    CHANNELS.forEach((ch)=>{
+      const val=Math.round(audio.gains[ch.id]*100); const muted=audio.muted[ch.id];
+      const row=document.createElement('div'); row.className=`channel ${(!muted&&audio.gains[ch.id]>.01)?'is-active':''}`;
+      row.innerHTML=`<div class="icon" aria-hidden="true">${Icons[ch.icon]}</div><div class="channel-main"><div class="channel-name">${ch.name}</div><div class="channel-sub">${ch.sub}</div></div><div class="range-wrap"><input type="range" min="0" max="100" step="1" value="${val}" data-channel="${ch.id}" aria-label="${ch.name} volume" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${val}"><div class="value" id="value-${ch.id}">${val}%</div></div><button class="mute" type="button" data-mute="${ch.id}" aria-label="${muted?'Unmute':'Mute'} ${ch.name}" aria-pressed="${muted}">${muted?'×':'◼'}</button>`;
+      list.appendChild(row);
+      const range=row.querySelector('input'); range.style.setProperty('--fill',`${val}%`);
+    });
+    theme.apply(audio,timer); 
+  }
+
+  function updateRing(timer){ const circumference=2*Math.PI*100; $('#ring-progress').style.strokeDasharray=circumference; const progress=clamp(1-(timer.remaining/timer.durationFor(timer.phase)),0,1); $('#ring-progress').style.strokeDashoffset=(circumference*(1-progress)).toFixed(2); $('#time-display').textContent=fmtTime(timer.remaining); $('#start-timer').textContent=timer.running?'Ⅱ':'▶'; $('#start-timer').setAttribute('aria-label',timer.running?'Pause timer':'Start timer'); }
+  function timerChanged(timer){ updateRing(timer); theme.apply(audio,timer); }
+  const timer=new TimerEngine(timerChanged,(minutes)=>stats.completedFocus(minutes));
+
+  // Ensure timer controls have correct initial presentation after construction.
+  timerChanged(timer); renderMixer();
+
+  $('#mix-list').addEventListener('input', async e=>{
+    const input=e.target.closest('input[data-channel]'); if(!input)return; const id=input.dataset.channel, value=Number(input.value)/100; audio.gains[id]=value; input.style.setProperty('--fill',`${input.value}%`); $(`#value-${id}`).textContent=`${input.value}%`; input.setAttribute('aria-valuenow',input.value); await audio.setGain(id,value); saveJSON(STORAGE.mixer,{gains:audio.gains,muted:audio.muted}); theme.apply(audio,timer);
+  });
+  $('#mix-list').addEventListener('change', async e=>{ if(e.target.matches('input[data-channel]')) await audio.ensure(); });
+  $('#mix-list').addEventListener('click', async e=>{
+    const btn=e.target.closest('[data-mute]'); if(!btn)return; const id=btn.dataset.mute; const muted=await audio.toggleMute(id); audio.muted[id]=muted; saveJSON(STORAGE.mixer,{gains:audio.gains,muted:audio.muted}); renderMixer();
+  });
+  $('#silence-btn').addEventListener('click',async()=>{ const silent=$('#silence-btn').dataset.silent==='1'; await audio.silence(!silent); $('#silence-btn').dataset.silent=silent?'0':'1'; $('#silence-btn').textContent=silent?'Silence':'Resume audio'; });
+  $('#reset-mix-btn').addEventListener('click',async()=>{ Object.assign(audio.gains,DEFAULT_GAINS); Object.keys(audio.muted).forEach(k=>audio.muted[k]=false); await audio.ensure(); CHANNELS.forEach(c=>audio.applyGain(c.id)); saveJSON(STORAGE.mixer,{gains:audio.gains,muted:audio.muted}); renderMixer(); toast('Mix reset'); });
+
+  const persistedMixer=safeParse(STORAGE.mixer,null); if(persistedMixer){ CHANNELS.forEach(c=>{ if(typeof persistedMixer.gains?.[c.id]==='number')audio.gains[c.id]=clamp(persistedMixer.gains[c.id],0,1); audio.muted[c.id]=Boolean(persistedMixer.muted?.[c.id]); }); renderMixer(); }
+
+  $('#start-timer').addEventListener('click',async()=>{ await audio.ensure(); timer.start(); });
+  $('#reset-timer').addEventListener('click',()=>timer.reset());
+  $('#skip-phase').addEventListener('click',()=>timer.skip());
+  $('#work-min').addEventListener('change',e=>{ timer.setDurations(e.target.value,$('#break-min').value); });
+  $('#break-min').addEventListener('change',e=>{ timer.setDurations($('#work-min').value,e.target.value); });
+
+  $('#save-preset').addEventListener('click',()=>{ const name=window.prompt('Preset name', 'Late Night Coding'); if(name && presets.save(name,audio)){ saveJSON(STORAGE.mixer,{gains:audio.gains,muted:audio.muted}); toast(`Saved “${name.trim()}”`); } });
+  $('#preset-list').addEventListener('click',e=>{ const load=e.target.closest('[data-load]'),del=e.target.closest('[data-delete]'); if(load)presets.load(Number(load.dataset.load),audio); if(del)presets.remove(Number(del.dataset.delete)); });
+
+  // First user gesture starts the AudioContext. Sliders are not autoplayed on load.
+  window.addEventListener('pointerdown',()=>{}, {once:true});
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'){ stats.rollover(); stats.render(); theme.apply(audio,timer); } });
+})();
+</script>
+</body>
+</html>
